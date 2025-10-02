@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+		<!-- ✅ NuGet Package Metadata -->
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageId>Navix.FreightAudit.Client</PackageId>
+		<Version>0.0.2</Version>
+		<Authors>Taylor Chase White</Authors>
+		<Company>Navix, Total Quality Logistics</Company>
+		<Product>Navix Freight Audit Api Client</Product>
+		<Description>Model library for the Navix Freight Audit API.</Description>
+		<PackageTags>Navix, Freight Audit, Logistics</PackageTags>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+
+		<!-- ✅ GitHub Repository -->
+		<PackageProjectUrl>https://github.com/taylorchasewhite/navix-api</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/taylorchasewhite/navix-api</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+
+		<!-- ✅ Include symbols/source for debugging -->
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		
+	</PropertyGroup>
+	<ItemGroup>
+		<None Include="../../README.md" Pack="true" PackagePath="" />
+	</ItemGroup>
+	
+	<ItemGroup>
+		<ProjectReference Include="..\Navix.FreightAudit.Models\Navix.FreightAudit.Models.csproj" />
+	</ItemGroup>
+
+</Project>
