@@ -22,7 +22,7 @@ namespace Navix.FreightAudit.Integration.V1.Api.Tenants.Item.CompositeVendorInvo
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public FinalizedRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/integration/v1/api/tenants/{tenantUuid}/composite-vendor-invoices/finalized?StartTime={StartTime}{&EndTime*,PageNumber*,PageSize*,ResultsDelivered*,SortOrder*}", pathParameters)
+        public FinalizedRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/integration/v1/api/tenants/{tenantUuid}/composite-vendor-invoices/finalized?StartTime={StartTime}{&EndTime*,IncludeUnmatched*,PageNumber*,PageSize*,SortOrder*}", pathParameters)
         {
         }
         /// <summary>
@@ -30,7 +30,7 @@ namespace Navix.FreightAudit.Integration.V1.Api.Tenants.Item.CompositeVendorInvo
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public FinalizedRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/integration/v1/api/tenants/{tenantUuid}/composite-vendor-invoices/finalized?StartTime={StartTime}{&EndTime*,PageNumber*,PageSize*,ResultsDelivered*,SortOrder*}", rawUrl)
+        public FinalizedRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/integration/v1/api/tenants/{tenantUuid}/composite-vendor-invoices/finalized?StartTime={StartTime}{&EndTime*,IncludeUnmatched*,PageNumber*,PageSize*,SortOrder*}", rawUrl)
         {
         }
         /// <summary>
@@ -87,12 +87,12 @@ namespace Navix.FreightAudit.Integration.V1.Api.Tenants.Item.CompositeVendorInvo
         {
             /// <summary>End time range to find Vendor Invoices which have finalized before this start time. This start time is inclusive. Default: Present time.End time time zone is interpreted as UTC.</summary>
             public DateTimeOffset? EndTime { get; set; }
+            /// <summary>Flag to include invoices that haven&apos;t been matched to any orders.This parameter should only be used for tenants that are using or expecting orderless invoices.Default value is false.</summary>
+            public bool? IncludeUnmatched { get; set; }
             /// <summary>Page index of the records to return. First page and default value is 0</summary>
             public int? PageNumber { get; set; }
             /// <summary>Number of records per page. Default value is 20, maximum value is 100</summary>
             public int? PageSize { get; set; }
-            /// <summary>Flag filter to return only Finalized Invoices which have been delivered or not.If this flag is not set, then the filter is not applied.Values: true, false, Null.Default value is Null</summary>
-            public bool? ResultsDelivered { get; set; }
             /// <summary>Sort order applied to the finalization time. Values: ASC, DESC. Default value is DESC</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable

@@ -6,6 +6,7 @@ using Microsoft.Kiota.Abstractions;
 using Navix.FreightAudit.Models;
 using Navix.FreightAudit.V2.Invoices.Item.Disputes;
 using Navix.FreightAudit.V2.Invoices.Item.Documents;
+using Navix.FreightAudit.V2.Invoices.Item.Payments;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -28,6 +29,11 @@ namespace Navix.FreightAudit.V2.Invoices.Item
         public global::Navix.FreightAudit.V2.Invoices.Item.Documents.DocumentsRequestBuilder Documents
         {
             get => new global::Navix.FreightAudit.V2.Invoices.Item.Documents.DocumentsRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The payments property</summary>
+        public global::Navix.FreightAudit.V2.Invoices.Item.Payments.PaymentsRequestBuilder Payments
+        {
+            get => new global::Navix.FreightAudit.V2.Invoices.Item.Payments.PaymentsRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>
         /// Instantiates a new <see cref="global::Navix.FreightAudit.V2.Invoices.Item.WithInvoiceUuItemRequestBuilder"/> and sets the default values.

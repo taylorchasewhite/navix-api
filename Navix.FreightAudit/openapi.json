@@ -3,7 +3,7 @@
   "info": {
     "title": "Navix Public API",
     "version": "v1-v2",
-    "description": "# Getting Started\n\nTo begin working with the Navix API, you'll need the following. Your Navix customer success manager will provide you with these details:\n* __Tenant UUID__. We generally set up both a production tenant and a sandbox tenant. We'll send you the UUIDs for both the production and sandbox tenant.\n* __User account__. You can use this account to log in to the Navix UI to help test your API interactions.\n* __API key__. We’ll send you an API key used to authenticate.\n\n# Authentication\n\nEvery API request should include an `X-Tenant-Uuid` header that contains your Tenant UUID and an `X-Api-Key` header containing your API key.\n\n# API Versions\n\nOur APIs are generally broken into three categories:\n* __v1__: This is the original version of our API. We plan to continue supporting it without breaking changes, but most new development will occur on v2.\n* __v2__: This introduced several improvements to our API, but also introduced some breaking changes. The major change is that it supports multiple vendors and multiple invoices on a single order. We're committed to stability on these endpoints, we support them and won't make breaking changes to them.\n* __Provisional__: We want to make sure our customers always have access to the latest features we're building. Our provisional endpoints provide a glimpse into the latest and greatest. However, these endpoints are not generally available and should not be used without explicit authorization for your Navix account team.\n\n> &#x26a0;&#xfe0f; **Provisional Endpoints Support**\n>\n> Do not use provisional endpoints unless you've been explicitly authorized to use them by your Navix account team. Outside of authorized, tenant-specific use cases, we will not provide support for these endpoints, and their use could have unintended side effects.\n\nNote that additive changes to an endpoint are not considered breaking. For instance, adding a new property to an endpoint isn't considered breaking, since the API consumer should ignore unknown properties by default. Likewise, it's important for API consumers not to send any data that isn't documented here. Although we ignore unrecognized fields, sending an unsupported property could cause a conflict if we later add a new property with that name.\n\n# Synchronous and Asynchronous Endpoints\n\nNote that some of our API endpoints operate asynchronously and may not be instantaneous. There are a number of reasons for this. Usually, these operations end up in a queue, providing greater resiliency. Sometimes, there's a multiple step workflow that takes a bit of time to run. Either way, we want our endpoint to validate the request and quickly return a response indicating if there are any errors.\n\nFollowing RESTful best practices, our asynchronous endpoints return a `202 Accepted` response, rather than a `200 OK`. For instance, when creating an order (with `POST /v2/orders`), several validations are run; if any of them fail, a `400 Bad Request` is returned with additional detail on which validations failed. If the POSTed data is valid, a `202 Accepted` is returned, which indicates the order will be added to our queue of orders to import. The order may not immediately appear within other API requests or within the UI. Usually, these asynchronous operations run within seconds; occasionally, such as during usage spikes, it may take longer.\n\n# Glossary\n\nBelow are some terms (__in bold__) that have specific meaning in Navix, listed with some synonyms commonly used in the industry.\n* __Tenant__: You, a Navix customer; likely a broker or 3PL\n* __Order__: Load, shipment, movement\n* __Invoice__: Vendor bill, carrier invoice, AP invoice, vendor invoice\n* __Vendor__: Carrier, warehouse, anyone that you pay\n* __Customer__: Shipper, freight forwarder, anyone that pays you\n* __Document__: Anything sent from your vendor; could be: invoice, bill of lading, delivery receipts, packing slips, etc\n\nSome additional terms used in this document:\n* __Approved Invoice__: An invoice that has been audited and approved for payment.\n* __Terminated Invoice__: An invoice that has been rejected for payment.\n* __Finalized Invoice__: An invoice that has been audited and is either \"approved\" or \"terminated\".\n\n# Common Flows\n\nThe primary consumers of this API are tenant's TMS integrations (or the TMS itself). Throughout this section, we refer to \"TMS\" (Transportation Management System) -- but this could be any consumer of the Navix API.\n\nNavix's API is flexible, and there are multiple ways a TMS can integrate with it. This section focuses on the most common scenarios.\n\nA simple TMS integration has two integration points with Navix:\n* TMS pushes orders to Navix.\n* TMS pulls completed audits from Navix.\n\n![Simple Integration Flow](https://docs.navix.io/assets/flow-1.png)\n\nA more complex integration may have several integration points with Navix:\n* TMS pushes orders to Navix.\n* TMS pushes invoices to Navix.\n* TMS pushes supporting documents to Navix.\n* Navix calls the TMS rating engine.\n* TMS pulls completed audits from Navix.\n* TMS pulls supporting documents from Navix.\n* TMS pulls dispute data and communications from Navix.\n\n![More Complex Integration Flow](https://docs.navix.io/assets/flow-2.png)\n\nIt's worth noting that there may be data (usually invoices and supporting documents) that are being sent to Navix without going through the TMS. For instance, vendors (carriers) may be sending EDI 210 documents directly to Navix. Vendors may also be sending invoices and supporting documents via email.\n\n## TMS Pushes Orders to Navix\n\nIn order to audit an invoice in Navix, Navix needs to know what order the invoice is for.\n\nUse the [\"Create an order\" (V2) endpoint](#tag/API-v2_Orders/operation/Order) to push an order to Navix.\n\nWe recommend:\n* The TMS should push order data to Navix regularly.\n* This could happen on a scheduled basis (perhaps every 15 minutes or every hour).\n* It can also happen in real-time (whenever a load/order is changed in the TMS).\n* Only orders that have been changed should be pushed to Navix.\n* Push orders to Navix after they have been tendered to a carrier, before the point in time when Navix may start receiving invoices.\n* You can push an order to Navix multiple times. Navix will perform an upsert based on the `orderNumber`. That is, if you push an order to Navix, if there's an existing order with the same `orderNumber`, it will be updated instead of inserted.\n* Send an `externalId` that correlates to the unique identifier for the order in the TMS.\n\nWe recommend against:\n* Sending all open orders on a scheduled basis. (For instance, sending all tendered orders every hour, regardless of whether or not anything has been changed on the order.)\n* Storing or relying on order UUIDs. An order UUID refers to a specific version of the order data; subsequent updates/upserts will result in new order UUIDs.\n* Assuming the order will be ingested immediately. Order ingestion generally occurs in near real-time. However, due to the resilient and distributed nature of our system, ingestion can occasionally take longer.\n\n## TMS Pulls Completed Audits from Navix\n\nWhen an audit has been completed (either by a user or automatically by Navix), the TMS needs to know the results of the audit.\n\nThere are two ways to manage this:\n* __Polling__: On a scheduled basis, the TMS polls the Navix API for any invoices that have been approved since the last polling.\n* __Webhook__: Whenever an invoice is approved, Navix will call a webhook callback on an API hosted by the TMS.\n\nEither way, the only data the TMS gets from either polling or a webhook is the UUID of an invoice that's been approved. The next step is to get the audit results.\n\n### Polling\n\nUse the [\"List finalized invoices\" endpoint](#tag/API-v1_Invoices/operation/ListFinalizedInvoices) to get a list of invoices finalized during a given time period.\n\nNotes:\n* The results are paged. More than one page of results may be returned; be sure to check to see if there are additional pages.\n* It's the responsibility of the TMS to keep track of the last time polling was run, and to set the `StartTime` and `EndTime` accordingly. If the TMS misses a scheduled run, the next poll request should adjust the `StartTime` accordingly.\n* Note that the `StartTime` and `EndTime` are UTC, and are the times stored by Navix. We recommend planning for a small amount of \"clock drift\" -- that is, the time on your server might vary slightly from the times on Navix servers. So if you're running this process at 6:00:00 UTC, it might make sense to specify an `EndTime` of 5:59:00 UTC.\n* You can poll with whatever frequency you want. Most tenants find that polling every 10-15 minutes strikes a good balance between returning results quickly and avoiding an overly \"chatty\" integration.\n\n### Webhook\n\nUse the [`INVOICE_APPROVED` webhook](#tag/API-v2_Webhooks) to receive a webhook callback whenever an invoice is approved.\n\nNotes:\n* Webhooks are triggered in real-time. So as soon as an invoice is approved, your callback URL will be immediately hit.\n* It's the responsibility of the TMS to handle the volume or fail in a prescribed fashion. Invoices are often approved in bulk, so there could be dozens, hundreds, or even thousands of webhook callbacks triggered in a very short period of time. Review the section on [webhook delivery guarantees](#tag/API-v2_Webhooks/Delivery-Guarantees) for more details on how Navix will retry webhooks.\n* Depending on the reliability of the TMS, it may be beneficial to supplement webhooks with occasional polling. That is, if there's a chance that the callback may fail or the TMS may miss some webhooks, the polling endpoint can be used to verify if any webhooks failed.\n\n### Getting Audit Results\n\nOnce you've received the UUID of an approved invoice, either by polling or webhook, use the [\"Get audit result\" endpoint](#tag/API-v2_Invoices/operation/GetAuditResult) to get the results of an audit.\n\nNotes:\n* Make sure to use the latest (v2) version of the [\"Get audit result\" endpoint](#tag/API-v2_Invoices/operation/GetAuditResult).\n* If you're pulling approved documents for pre-billing (in addition to getting audit results), you may end up with duplicate documents. That is, the documents you receive from the [\"Get List of Approved Documents\" endpoint](#tag/Provisional_Documents/operation/GetApprovedDocuments) or the `DOCUMENT_APPROVED` webhook will also appear in the [\"Get audit result\" endpoint](#tag/API-v2_Invoices/operation/GetAuditResult). However, you can specify `includeApprovedDocuments=false` in the call to the \"Get audit result\" endpoint to filter out approved documents from the list of documents that appears in `orders[n].documents`.\n\n## TMS Pulls Supporting Documents from Navix\n\n### Getting Documents by Invoice UUID\n\nAfter the TMS has pulled audit results for an invoice, it can retrieve the supporting documents for the invoice. Use the [\"Download invoice document\" endpoint](#tag/API-v1_Documents/operation/DownloadInvoiceDocument) to download the raw file.\n\nNotes:\n* The endpoint requires an invoice UUID and a document UUID. Document UUIDs are returned in the \"Get audit result\" endpoint, under `orders.documents.uuid`.\n* Additional information about the document is available from the \"Get result endpoint\", such as the type of document (\"Invoice\", \"Bill of Lading\", etc.).\n* The endpoint returns the raw binary file.\n* Currently, all returned files will be in PDF format. However, this may change in the future, and API consumers should not assume that the returned files will always be PDFs.\n\n## TMS Pulls Pre-Bill Approved Orders from Navix\n\nPre-billing sends \"approved\" orders to the TMS before receiving or completing the audit of an invoice. This indicates that the TMS can generate a customer invoice for the order. Usually, the approval occurs when a proof of delivery is received and approved by an auditor.\n\nThere are two ways to implement this:\n* __Polling__: On a scheduled basis, the TMS polls the Navix API for any approved orders.\n* __Webhook__: Whenever an order is approved, Navix will call a webhook callback on an API hosted by the TMS.\n\nEither way, the only data the TMS gets from either polling or a webhook is the external ID of the order.\n\n### Polling\n\nTo get a list of approved orders, call the [Get List of Approved Orders](#tag/Provisional_Orders/operation/GetApprovedOrders) endpoint. This endpoint lets you pass in a time range, and returns the UUIDs of all orders approved during that period.\n\n### Webhook\n\nUse the [`ORDER_APPROVED` webhook](#tag/API-v2_Webhooks) to receive a webhook callback whenever an order is approved.\n\n### Getting Order Documents\n\nOnce an order has been approved (and the TMS learns about it from either polling or a webhook callback), it can retrieve additional information about the documents on the order:\n\n* You can retrieve a list of all the documents on the order with the [Get Document Uuids](#tag/Provisional_Documents/operation/DocumentUuidsGet) endpoint. This returns a list of document UUIDs.\n* Alternatively, you can retrieve a list of documents with additional metadata, such as document type, by calling the [Get Document Metadata](#tag/Provisional_Documents/operation/DocumentMetatadataGet) endpoint.\n* You can download the binary file of a document using the [Get One Attachment](#tag/Provisional_Documents/operation/GetDocumentAttachment) endpoint. Currently, all returned files are in PDF format. However, this may change in the future, so API consumers should not assume that all returned files will always be PDFs.\n\n## TMS Pulls Approved Documents from Navix\n\nWhen a document is approved, it indicates that the TMS can send the document to the customer/shipper. This can occur before the invoice is received or audited.\n\nThere are two ways to implement this:\n* __Polling__: On a scheduled basis, the TMS polls the Navix API for any approved documents.\n* __Webhook__: Whenever a document is approved, Navix will call a webhook callback on an API hosted by the TMS.\n\nEither way, the only data the TMS gets from either polling or a webhook is the external ID of the order and the document UUID.\n\n### Polling\n\nTo get a list of approved documents, call the [Get List of Approved Documents](#tag/Provisional_Documents/operation/GetApprovedDocuments) endpoint. This endpoints lets you pass in a time range, and returns the external order ID and document UUID of all documents approved during that period.\n\n### Webhook\n\nUse the [`DOCUMENT_APPROVED` webhook](#tag/API-v2_Webhooks) to receive a webhook callback whenever a document is approved.\n\n### Getting Documents\n\nOnce a document has been approved (and the TMS learns about it from either polling or a webhook callback), you can get the binary file with the [Get One Attachment](#tag/Provisional_Documents/operation/GetDocumentAttachment) endpoint. Currently, all returned files are in PDF format. However, this may change in the future, so API consumers should not assume that all returned files will always be PDFs.\n\nNotes:\n* An approved document will also match to an invoice once the invoice for the order has been received. This means approved documents will also be returned in the [\"Get audit result\" endpoint](#tag/API-v2_Invoices/operation/GetAuditResult). To filter approved documents out from that endpoint, include the `includeApprovedDocuments=false` parameter when calling [\"Get audit result\"](#tag/API-v2_Invoices/operation/GetAuditResult).\n",
+    "description": "# Getting Started\n\nTo begin working with the Navix API, you'll need the following. Your Navix customer success manager will provide you with these details:\n* __Tenant UUID__. We generally set up both a production tenant and a sandbox tenant. We'll send you the UUIDs for both the production and sandbox tenant.\n* __User account__. You can use this account to log in to the Navix UI to help test your API interactions.\n* __API key__. We’ll send you an API key used to authenticate.\n\n# Authentication\n\nEvery API request should include an `X-Tenant-Uuid` header that contains your Tenant UUID and an `X-Api-Key` header containing your API key.\n\n# API Versions\n\nOur APIs are generally broken into three categories:\n* __v1__: This is the original version of our API. We plan to continue supporting it without breaking changes, but most new development will occur on v2.\n* __v2__: This introduced several improvements to our API, but also introduced some breaking changes. The major change is that it supports multiple vendors and multiple invoices on a single order. We're committed to stability on these endpoints, we support them and won't make breaking changes to them.\n* __Provisional__: We want to make sure our customers always have access to the latest features we're building. Our provisional endpoints provide a glimpse into the latest and greatest. However, these endpoints are not generally available and should not be used without explicit authorization for your Navix account team.\n\n> &#x26a0;&#xfe0f; **Provisional Endpoints Support**\n>\n> Do not use provisional endpoints unless you've been explicitly authorized to use them by your Navix account team. Outside of authorized, tenant-specific use cases, we will not provide support for these endpoints, and their use could have unintended side effects.\n\nNote that additive changes to an endpoint are not considered breaking. For instance, adding a new property to an endpoint isn't considered breaking, since the API consumer should ignore unknown properties by default. Likewise, it's important for API consumers not to send any data that isn't documented here. Although we ignore unrecognized fields, sending an unsupported property could cause a conflict if we later add a new property with that name. Finally, new enum values may be added over time. For instance, we regularly add support for new document types.\n\n# Synchronous and Asynchronous Endpoints\n\nNote that some of our API endpoints operate asynchronously and may not be instantaneous. There are a number of reasons for this. Usually, these operations end up in a queue, providing greater resiliency. Sometimes, there's a multiple step workflow that takes a bit of time to run. Either way, we want our endpoint to validate the request and quickly return a response indicating if there are any errors.\n\nFollowing RESTful best practices, our asynchronous endpoints return a `202 Accepted` response, rather than a `200 OK`. For instance, when creating an order (with `POST /v2/orders`), several validations are run; if any of them fail, a `400 Bad Request` is returned with additional detail on which validations failed. If the POSTed data is valid, a `202 Accepted` is returned, which indicates the order will be added to our queue of orders to import. The order may not immediately appear within other API requests or within the UI. Usually, these asynchronous operations run within seconds; occasionally, such as during usage spikes, it may take longer.\n\n# Glossary\n\nBelow are some terms (__in bold__) that have specific meaning in Navix, listed with some synonyms commonly used in the industry.\n* __Tenant__: You, a Navix customer; likely a broker or 3PL\n* __Order__: Load, shipment, movement\n* __Invoice__: Vendor bill, carrier invoice, AP invoice, vendor invoice\n* __Vendor__: Carrier, warehouse, anyone that you pay\n* __Customer__: Shipper, freight forwarder, anyone that pays you\n* __Document__: Anything sent from your vendor; could be: invoice, bill of lading, delivery receipts, packing slips, etc\n\nSome additional terms used in this document:\n* __Approved Invoice__: An invoice that has been audited and approved for payment.\n* __Terminated Invoice__: An invoice that has been rejected for payment.\n* __Finalized Invoice__: An invoice that has been audited and is either \"approved\" or \"terminated\".\n\n# Common Flows\n\nThe primary consumers of this API are tenant's TMS integrations (or the TMS itself). Throughout this section, we refer to \"TMS\" (Transportation Management System) -- but this could be any consumer of the Navix API.\n\nNavix's API is flexible, and there are multiple ways a TMS can integrate with it. This section focuses on the most common scenarios.\n\nA simple TMS integration has two integration points with Navix:\n* TMS pushes orders to Navix.\n* TMS pulls completed audits from Navix.\n\n![Simple Integration Flow](https://docs.navix.io/assets/flow-1.png)\n\nA more complex integration may have several integration points with Navix:\n* TMS pushes orders to Navix.\n* TMS pushes invoices to Navix.\n* TMS pushes supporting documents to Navix.\n* Navix calls the TMS rating engine.\n* TMS pulls completed audits from Navix.\n* TMS pulls supporting documents from Navix.\n* TMS pulls dispute data and communications from Navix.\n\n![More Complex Integration Flow](https://docs.navix.io/assets/flow-2.png)\n\nIt's worth noting that there may be data (usually invoices and supporting documents) that are being sent to Navix without going through the TMS. For instance, vendors (carriers) may be sending EDI 210 documents directly to Navix. Vendors may also be sending invoices and supporting documents via email.\n\n## TMS Pushes Orders to Navix\n\nIn order to audit an invoice in Navix, Navix needs to know what order the invoice is for.\n\nUse the [\"Create an order\" (V2) endpoint](#tag/API-v2_Orders/operation/Order) to push an order to Navix.\n\nWe recommend:\n* The TMS should push order data to Navix regularly.\n* This could happen on a scheduled basis (perhaps every 15 minutes or every hour).\n* It can also happen in real-time (whenever a load/order is changed in the TMS).\n* Only orders that have been changed should be pushed to Navix.\n* Push orders to Navix after they have been tendered to a carrier, before the point in time when Navix may start receiving invoices.\n* You can push an order to Navix multiple times. Navix will perform an upsert based on the `orderNumber`. That is, if you push an order to Navix, if there's an existing order with the same `orderNumber`, it will be updated instead of inserted.\n* Send an `externalId` that correlates to the unique identifier for the order in the TMS.\n\nWe recommend against:\n* Sending all open orders on a scheduled basis. (For instance, sending all tendered orders every hour, regardless of whether or not anything has been changed on the order.)\n* Storing or relying on order UUIDs. An order UUID refers to a specific version of the order data; subsequent updates/upserts will result in new order UUIDs.\n* Assuming the order will be ingested immediately. Order ingestion generally occurs in near real-time. However, due to the resilient and distributed nature of our system, ingestion can occasionally take longer.\n\n## TMS Pulls Completed Audits from Navix\n\nWhen an audit has been completed (either by a user or automatically by Navix), the TMS needs to know the results of the audit.\n\nThere are two ways to manage this:\n* __Polling__: On a scheduled basis, the TMS polls the Navix API for any invoices that have been approved since the last polling.\n* __Webhook__: Whenever an invoice is approved, Navix will call a webhook callback on an API hosted by the TMS.\n\nEither way, the only data the TMS gets from either polling or a webhook is the UUID of an invoice that's been approved. The next step is to get the audit results.\n\n### Polling\n\nUse the [\"List finalized invoices\" endpoint](#tag/API-v1_Invoices/operation/ListFinalizedInvoices) to get a list of invoices finalized during a given time period.\n\nNotes:\n* The results are paged. More than one page of results may be returned; be sure to check to see if there are additional pages.\n* It's the responsibility of the TMS to keep track of the last time polling was run, and to set the `StartTime` and `EndTime` accordingly. If the TMS misses a scheduled run, the next poll request should adjust the `StartTime` accordingly.\n* Note that the `StartTime` and `EndTime` are UTC, and are the times stored by Navix. We recommend planning for a small amount of \"clock drift\" -- that is, the time on your server might vary slightly from the times on Navix servers. So if you're running this process at 6:00:00 UTC, it might make sense to specify an `EndTime` of 5:59:00 UTC.\n* You can poll with whatever frequency you want. Most tenants find that polling every 10-15 minutes strikes a good balance between returning results quickly and avoiding an overly \"chatty\" integration.\n\n### Webhook\n\nUse the [`INVOICE_APPROVED` webhook](#tag/API-v2_Webhooks) to receive a webhook callback whenever an invoice is approved.\n\nNotes:\n* Webhooks are triggered in real-time. So as soon as an invoice is approved, your callback URL will be immediately hit.\n* It's the responsibility of the TMS to handle the volume or fail in a prescribed fashion. Invoices are often approved in bulk, so there could be dozens, hundreds, or even thousands of webhook callbacks triggered in a very short period of time. Review the section on [webhook delivery guarantees](#tag/API-v2_Webhooks/Delivery-Guarantees) for more details on how Navix will retry webhooks.\n* Depending on the reliability of the TMS, it may be beneficial to supplement webhooks with occasional polling. That is, if there's a chance that the callback may fail or the TMS may miss some webhooks, the polling endpoint can be used to verify if any webhooks failed.\n\n### Getting Audit Results\n\nOnce you've received the UUID of an approved invoice, either by polling or webhook, use the [\"Get audit result\" endpoint](#tag/API-v2_Invoices/operation/GetAuditResult) to get the results of an audit.\n\nNotes:\n* Make sure to use the latest (v2) version of the [\"Get audit result\" endpoint](#tag/API-v2_Invoices/operation/GetAuditResult).\n* If you're pulling approved documents for pre-billing (in addition to getting audit results), you may end up with duplicate documents. That is, the documents you receive from the [\"Get List of Approved Documents\" endpoint](#tag/Provisional_Documents/operation/GetApprovedDocuments) or the `DOCUMENT_APPROVED` webhook will also appear in the [\"Get audit result\" endpoint](#tag/API-v2_Invoices/operation/GetAuditResult). However, you can specify `includeApprovedDocuments=false` in the call to the \"Get audit result\" endpoint to filter out approved documents from the list of documents that appears in `orders[n].documents`.\n\n## TMS Pulls Supporting Documents from Navix\n\n### Getting Documents by Invoice UUID\n\nAfter the TMS has pulled audit results for an invoice, it can retrieve the supporting documents for the invoice. Use the [\"Download invoice document\" endpoint](#tag/API-v1_Documents/operation/DownloadInvoiceDocument) to download the raw file.\n\nNotes:\n* The endpoint requires an invoice UUID and a document UUID. Document UUIDs are returned in the \"Get audit result\" endpoint, under `orders.documents.uuid`.\n* Additional information about the document is available from the \"Get result endpoint\", such as the type of document (\"Invoice\", \"Bill of Lading\", etc.).\n* The endpoint returns the raw binary file.\n* Currently, all returned files will be in PDF format. However, this may change in the future, and API consumers should not assume that the returned files will always be PDFs.\n\n## TMS Pulls Pre-Bill Approved Orders from Navix\n\nPre-billing sends \"approved\" orders to the TMS before receiving or completing the audit of an invoice. This indicates that the TMS can generate a customer invoice for the order. Usually, the approval occurs when a proof of delivery is received and approved by an auditor.\n\nThere are two ways to implement this:\n* __Polling__: On a scheduled basis, the TMS polls the Navix API for any approved orders.\n* __Webhook__: Whenever an order is approved, Navix will call a webhook callback on an API hosted by the TMS.\n\nEither way, the only data the TMS gets from either polling or a webhook is the external ID of the order.\n\n### Polling\n\nTo get a list of approved orders, call the [Get List of Approved Orders](#tag/Provisional_Orders/operation/GetApprovedOrders) endpoint. This endpoint lets you pass in a time range, and returns the UUIDs of all orders approved during that period.\n\n### Webhook\n\nUse the [`ORDER_APPROVED` webhook](#tag/API-v2_Webhooks) to receive a webhook callback whenever an order is approved.\n\n### Getting Order Documents\n\nOnce an order has been approved (and the TMS learns about it from either polling or a webhook callback), it can retrieve additional information about the documents on the order:\n\n* You can retrieve a list of all the documents on the order with the [Get Document Uuids](#tag/Provisional_Documents/operation/DocumentUuidsGet) endpoint. This returns a list of document UUIDs.\n* Alternatively, you can retrieve a list of documents with additional metadata, such as document type, by calling the [Get Document Metadata](#tag/Provisional_Documents/operation/DocumentMetatadataGet) endpoint.\n* You can download the binary file of a document using the [Get One Attachment](#tag/Provisional_Documents/operation/GetDocumentAttachment) endpoint. Currently, all returned files are in PDF format. However, this may change in the future, so API consumers should not assume that all returned files will always be PDFs.\n\n## TMS Pulls Approved Documents from Navix\n\nWhen a document is approved, it indicates that the TMS can send the document to the customer/shipper. This can occur before the invoice is received or audited.\n\nThere are two ways to implement this:\n* __Polling__: On a scheduled basis, the TMS polls the Navix API for any approved documents.\n* __Webhook__: Whenever a document is approved, Navix will call a webhook callback on an API hosted by the TMS.\n\nEither way, the only data the TMS gets from either polling or a webhook is the external ID of the order and the document UUID.\n\n### Polling\n\nTo get a list of approved documents, call the [Get List of Approved Documents](#tag/Provisional_Documents/operation/GetApprovedDocuments) endpoint. This endpoints lets you pass in a time range, and returns the external order ID and document UUID of all documents approved during that period.\n\n### Webhook\n\nUse the [`DOCUMENT_APPROVED` webhook](#tag/API-v2_Webhooks) to receive a webhook callback whenever a document is approved.\n\n### Getting Documents\n\nOnce a document has been approved (and the TMS learns about it from either polling or a webhook callback), you can get the binary file with the [Get One Attachment](#tag/Provisional_Documents/operation/GetDocumentAttachment) endpoint. Currently, all returned files are in PDF format. However, this may change in the future, so API consumers should not assume that all returned files will always be PDFs.\n\nNotes:\n* An approved document will also match to an invoice once the invoice for the order has been received. This means approved documents will also be returned in the [\"Get audit result\" endpoint](#tag/API-v2_Invoices/operation/GetAuditResult). To filter approved documents out from that endpoint, include the `includeApprovedDocuments=false` parameter when calling [\"Get audit result\"](#tag/API-v2_Invoices/operation/GetAuditResult).\n",
     "x-logo": {
       "url": "https://docs.navix.io/assets/navix-logo.png"
     }
@@ -35,8 +35,21 @@
       "x-displayName": "Orders"
     },
     {
+      "name": "API v2_Pre-bill",
+      "x-displayName": "Pre-bill"
+    },
+    {
       "name": "API v2_Disputes",
       "x-displayName": "Disputes"
+    },
+    {
+      "name": "API v2_Payments",
+      "x-displayName": "Payments"
+    },
+    {
+      "name": "API v2_Rating Engine",
+      "description": "Navix provides the ability to call out to an endpoint in your system that can utilize your rating engine. Our system will allow an auditor to send an updated invoice from our system to your rating engine endpoint to get rated.\n\n## Delivery Guarantees\n\nThis is a webhook in the Navix system but it does not have the same guarantees as the other webhooks.\n\nWe will attempt to call your rating engine endpoint 1 time. If it fails to return a 2xx status code, we might try again based on the status code that was returned. We won't retry 4xx status codes but we may retry 5xx status codes.\n\nIn other words, calls to your rating engine webhook are managed in a different manner than other tenant provided webhooks. The mechanism, manner and guarantees of this webhook are different from the [Webhooks](index.html#tag/API-v2_Webhooks) tab mentioned earlier in the documentation.\n\n## Performance Concerns\n\nIt is important that performance is taken into account inside of rating engines. An auditor in the UI can call the rating engine with the press of a button. If a rating engine takes 15 seconds to complete, each audit will take an additional 15 seconds to complete with each rating engine call.\n\n## Setup\n\nGetting started is straight forward. Our team and your team have a few tasks that need to be accomplished so you use this feature.\n\n### Implementation Responsibilities\n\nOur system will make a call out to an endpoint url that you specify. That endpoint will need to handle the payload that we send, rate the payload and then return a response. You can view request payload and response structure in the `Rating Engine Payload` and `Rating Engine Response` sections below respectively. We do into more detail in the `Endpoint Contract` section\n\nHere are the tasks for your team:\n\n1. Create an endpoint that satisfies the information found in the `Endpoint Contract` section\n1. Provide the url to that endpoint to the Navix team\n1. Contact your account manager so our team can generate a unique api key for you. This api key is the one all our requests will use so you can be sure that the requests are coming from our system. How it is used is covered in the `Endpoint Contract` section.\n\nHere are the tasks for the Navix team:\n\n1. Provide you with a unique api key so you can be sure the requests are coming from us.\n1. Add your endpoint url to our system so we can contact you.\n1. Support you.\n\n## Endpoint Contract\n\nIn order for the Navix system to contact your rating engine we need an endpoint that meets the following requirements:\n\n1. The endpoint must be able to handle a `POST` request.\n1. The endpoint must handle an `apikey` query string argument. The `apikey` value is one that our team has generated for you. You can get this by contacting your account manager. Your endpoint should validate that the `apikey` value is the same that we provided you. If it is not, you should return a `401 Unauthorized` status code.\n1. The endpoint must handle the request payload. The request payload is an invoice from our system that needs to be rated. You can learn more about the payload and what each field means in the `Rating Engine Payload` section below.\n1. The endpoint must map your system's raw rating response to the rating engine response that we are expecting. You can view that structure in the `Rating Engine Response` section below.\n1. The endpoint must return a 2xx response along with the structure provided in the `Rating Engine Response` section below. Please note that we are expecting a single rating engine response from your endpoint. You might have a rating engine that rate shops multiple vendors, please trim down your response to only include the selected vendor response. If your rating engine throws an exception, it is beneficial to the auditor to return a 2xx response and populate the `RawResponse` field with the exception. These exceptions provides feedback to the auditors so they can make corrections or let them know that a system is temporarily down.\n\nIf the endpoint returns a 2xx response we mark that as a success. All other responses are treated as failures and retry attempts happen where it makes sense.\n\nWe can visualize the contract the following way:\n\n![Endpoint Contract Flow](https://docs.navix.io/assets/rating-engine-endpoint-contract-flow.png)\n\n### Rating Engine Payload\n\nOur payload is an invoice from our system. We have provided an example below to show the structure and a sample of data. An explanation of the fields is below the example.\n```\n{\n  \"Uuid\": \"e4c3b17a-d207-43f9-ba2d-f61d068c7808\",\n  \"ExternalOrderId\": \"MyOrderId\",\n  \"FreightChargeTerms\": \"Prepaid\",\n  \"DeliveryDate\": \"2024-04-11T12:34:56Z\",\n  \"ShipDate\": \"2024-04-01T08:00:00Z\",\n  \"Vendor\": {\n    \"ExternalId\": \"147-888\",\n    \"SCAC\": \"SAIA\"\n  },\n  \"Customer\": {\n  {\n    \"ExternalId\": \"6594HH4\",\n  },\n  \"Stops\": [\n    {\n      \"Type\": \"Origin\",\n      \"City\": \"Beverly Hills\",\n      \"Zip\": \"90210\",\n      \"CountryCode\": \"USA\",\n      \"StateCode\": \"CA\"\n    },\n    {\n      \"Type\": \"Destination\",\n      \"City\": \"Dallas\",\n      \"Zip\": \"75080\",\n      \"CountryCode\": \"USA\",\n      \"StateCode\": \"TX\"\n    }\n  ],\n  \"LineItems\": [\n    {\n      \"Description\": \"Navix branded shoes\",\n      \"HandlingUnit\": \"Pallet\",\n      \"HandlingUnitCode\": \"PLT\",\n      \"HandlingUnitCount\": 4,\n      \"Weight\": 231.10,\n      \"WeightUnit\": \"LBS\",\n      \"Class\": 100.00,\n      \"Height\": 50.00,\n      \"Width\": 40.00,\n      \"Length\": 48.00,\n      \"Stackable\": true\n    }\n  ],\n  \"VendorCharges\": [\n    {\n      \"Code\": \"ACH\"\n    }\n  ]\n}\n```\n\n* `Uuid` is a unique identifier for the invoice in the Navix system.\n* `ExternalOrderId` is the order id in your system that this invoice is for.\n* `FreightChargeTerms` is how the freight is paid. Possible values include: `Collect`, `Prepaid`, `Prepaid & Add` and `Third Party`\n* `DeliveryDate` is the UTC datetime of when the shipment was delivered.\n* `ShipDate` is the UTC datetime of when the shipment was shipped.\n* `Vendor`\n  * `ExternalId` is the id in your system that this vendor is known as.\n  * `SCAC` is the SCAC code for this vendor.\n* `Customer`\n  * `ExternalId` is the id in your system that this customer is known as.\n* `Stops`\n  * `Stops.Type` is what type of stop this is. Possible values include: `Origin`, `Destination` and `BillTo`.\n  * `Stops.City` is city for this stop.\n  * `Stops.Zip` is the zip code for this stop.\n  * `Stops.CountryCode` is the country code for this stop. Possible values include: `USA`, `CAN` and `MEX`.\n  * `Stops.StateCode` is the state code for this stop.\n* `LineItems`\n  * `LineItems.Description` is the description for this line item.\n  * `LineItems.HandlingUnit` is the container for this line item. Possible values include: `Pallet`, `Drum`, `Bag`, `Barrels`, `Crates`, `Bundles`, `Pieces`, `Loose`, `Boxes`, `Cases`, `Carton` and `Totes`.\n  * `LineItems.HandlingUnitCode` is the alias for the HandlingUnit above.\n  * `LineItems.HandlingUnitCount` is how many containers are used for this line item\n  * `LineItems.Weight` is the weight for this line item.\n  * `LineItems.WeightUnit` is the weight unit used for this line item. Possible values include: `LBS` and `KG`\n  * `LineItems.Class` is the shipping class.\n  * `LineItems.Height` is the height for this line item.\n  * `LineItems.Width` is the width for this line item.\n  * `LineItems.Length` is the length for this line item.\n  * `LineItems.Stackable` indicates whether line item is stackable.\n* `VendorCharges`\n  * `Code` the charge code in your system for this charge.\n\n### Rating Engine Response\n\nOnce the invoice has been rated, we need the results mapped in a format our system can understand. Please note that we are expecting a single rating engine response from your endpoint. You might have a rating engine that rate shops multiple vendors, please trim down your response to only include the selected vendor response. \n\nWe have provided an example below to show the structure and a sample of data. An explanation of the fields is below the example.\n\n```\n{\n  \"RawResponse\": \"...\",\n  \"RawResponseType\": \"JSON\",\n  \"VendorCharges\": [\n    {\n      \"Code\": \"ACH\",\n      \"Description\": \"LIMITED ACCESS DELIVERY\",\n      \"Amount\": 83.2500,\n      \"Rate\": 55.5000,\n      \"Quantity\": 1.5000,\n      \"Qualifier\": \"PerMile\"\n    },\n    {\n      \"Code\": \"NFY\",\n      \"Description\": \"NOTIFICATION FEE\",\n      \"Amount\": 106.52,\n    }\n  ],\n  \"CustomerCharges\": [\n    {\n      \"Code\": \"ACH\",\n      \"Description\": \"LIMITED ACCESS DELIVERY\",\n      \"Amount\": 59.35\n    }\n  ] \n}\n```\n\n* `RawResponse` is a raw response from your rating engine. This can be the response when a rate was returned or in the case where there was an exception from the rating engine. Providing this can be beneficial to auditors. Auditors will have the visibility to see this response in the UI. \n* `RawResponseType` is format of the `RawResponse` field. Possible values include: Json, Xml and Text.\n* `VendorCharges`\n  * `Code` the charge code in your system for this charge.\n  * `Description` is a description of the charge.\n  * `Amount` is the amount for this charge.\n  * `Rate` represents the price per unit as defined by Qualifier.\n  * `Quantity` is the number of units that the Rate applies to, aligned to the Qualifier’s unit.\n  * `Qualifier` indicates the unit type for Rate and Quantity calculations. Supported values: PerPound, PerHundredweight, PerTon, PerMile, PerKilometer, PerHour, PerCase, PerPallet, PerUnit, Percent.\n* `CustomerCharges`\n  * `Code` is the as `VendorCharges.Code` above.\n  * `Description` is the as `VendorCharges.Description` above.\n  * `Amount` is the as `VendorCharges.Amount` above but relevant to a customer.\n  * `Rate` is the as `VendorCharges.Rate` above.\n  * `Quantity` is the as `VendorCharges.Quantity` above.\n  * `Qualifier` is the as `VendorCharges.Qualifier` above.\n\n### Important Rate Qualifier Validation Rules\n\nIf any of these validations fail, we'll display the validation message results to auditors through the button next to the Audit column in the charges grid within the Navix App, similar to how validation messages are currently shown when we receive a 400 Bad Request response.\n\n- Rate qualifier properties (`Rate`, `Quantity`, `Qualifier`) must be used as a complete set - either all three must be provided together, or all three must be null/omitted\n- When all three are provided, the system validates that `Amount` equals `Rate × Quantity` (with 4 decimal places precision)\n- `Qualifier` values are strictly validated against our supported enumeration\n",
+      "x-displayName": "Rating Engine"
     },
     {
       "name": "API v2_Webhooks",
@@ -46,15 +59,6 @@
     {
       "name": "Provisional_Orders",
       "x-displayName": "Orders"
-    },
-    {
-      "name": "Provisional_Documents",
-      "x-displayName": "Documents"
-    },
-    {
-      "name": "Provisional_Rating Engine",
-      "description": "Navix provides the ability to call out to an endpoint in your system that can utilize your rating engine. Our system will allow an auditor to send an updated invoice from our system to your rating engine endpoint to get rated.\n\n## Delivery Guarantees\n\nThis is a webhook in the Navix system but it does not have the same guarantees as the other webhooks.\n\nWe will attempt to call your rating engine endpoint 1 time. If it fails to return a 2xx status code, we might try again based on the status code that was returned. We won't retry 4xx status codes but we may retry 5xx status codes.\n\nIn other words, calls to your rating engine webhook are managed in a different manner than other tenant provided webhooks. The mechanism, manner and guarantees of this webhook are different from the [Webhooks](index.html#tag/API-v2_Webhooks) tab mentioned earlier in the documentation.\n\n## Performance Concerns\n\nIt is important that performance is taken into account inside of rating engines. An auditor in the UI can call the rating engine with the press of a button. If a rating engine takes 15 seconds to complete, each audit will take an additional 15 seconds to complete with each rating engine call.\n\n## Setup\n\nGetting started is straight forward. Our team and your team have a few tasks that need to be accomplished so you use this feature.\n\n### Implementation Responsibilities\n\nOur system will make a call out to an endpoint url that you specify. That endpoint will need to handle the payload that we send, rate the payload and then return a response. You can view request payload and response structure in the `Rating Engine Payload` and `Rating Engine Response` sections below respectively. We do into more detail in the `Endpoint Contract` section\n\nHere are the tasks for your team:\n\n1. Create an endpoint that satisfies the information found in the `Endpoint Contract` section\n1. Provide the url to that endpoint to the Navix team\n1. Contact your account manager so our team can generate a unique api key for you. This api key is the one all our requests will use so you can be sure that the requests are coming from our system. How it is used is covered in the `Endpoint Contract` section.\n\nHere are the tasks for the Navix team:\n\n1. Provide you with a unique api key so you can be sure the requests are coming from us.\n1. Add your endpoint url to our system so we can contact you.\n1. Support you.\n\n## Endpoint Contract\n\nIn order for the Navix system to contact your rating engine we need an endpoint that meets the following requirements:\n\n1. The endpoint must be able to handle a `POST` request.\n1. The endpoint must handle an `apikey` query string argument. The `apikey` value is one that our team has generated for you. You can get this by contacting your account manager. Your endpoint should validate that the `apikey` value is the same that we provided you. If it is not, you should return a `401 Unauthorized` status code.\n1. The endpoint must handle the request payload. The request payload is an invoice from our system that needs to be rated. You can learn more about the payload and what each field means in the `Rating Engine Payload` section below.\n1. The endpoint must map your system's raw rating response to the rating engine response that we are expecting. You can view that structure in the `Rating Engine Response` section below.\n1. The endpoint must return a 2xx response along with the structure provided in the `Rating Engine Response` section below. Please note that we are expecting a single rating engine response from your endpoint. You might have a rating engine that rate shops multiple vendors, please trim down your response to only include the selected vendor response. If your rating engine throws an exception, it is beneficial to the auditor to return a 2xx response and populate the `RawResponse` field with the exception. These exceptions provides feedback to the auditors so they can make corrections or let them know that a system is temporarily down.\n\nIf the endpoint returns a 2xx response we mark that as a success. All other responses are treated as failures and retry attempts happen where it makes sense.\n\nWe can visualize the contract the following way:\n\n![Endpoint Contract Flow](https://docs.navix.io/assets/rating-engine-endpoint-contract-flow.png)\n\n### Rating Engine Payload\n\nOur payload is an invoice from our system. We have provided an example below to show the structure and a sample of data. An explanation of the fields is below the example.\n```\n{\n  \"Uuid\": \"e4c3b17a-d207-43f9-ba2d-f61d068c7808\",\n  \"ExternalOrderId\": \"MyOrderId\",\n  \"FreightChargeTerms\": \"Prepaid\",\n  \"DeliveryDate\": \"2024-04-11T12:34:56Z\",\n  \"ShipDate\": \"2024-04-01T08:00:00Z\",\n  \"Vendor\": {\n    \"ExternalId\": \"147-888\",\n    \"SCAC\": \"SAIA\"\n  },\n  \"Customer\": {\n  {\n    \"ExternalId\": \"6594HH4\",\n  },\n  \"Stops\": [\n    {\n      \"Type\": \"Origin\",\n      \"City\": \"Beverly Hills\",\n      \"Zip\": \"90210\",\n      \"CountryCode\": \"USA\",\n      \"StateCode\": \"CA\"\n    },\n    {\n      \"Type\": \"Destination\",\n      \"City\": \"Dallas\",\n      \"Zip\": \"75080\",\n      \"CountryCode\": \"USA\",\n      \"StateCode\": \"TX\"\n    }\n  ],\n  \"LineItems\": [\n    {\n      \"Description\": \"Navix branded shoes\",\n      \"HandlingUnit\": \"Pallet\",\n      \"HandlingUnitCode\": \"PLT\",\n      \"HandlingUnitCount\": 4,\n      \"Weight\": 231.1,\n      \"WeightUnit\": \"Imperial\",\n      \"Class\": 100\n    }\n  ],\n  \"VendorCharges\": [\n    {\n      \"Code\": \"ACH\"\n    }\n  ]\n}\n```\n\n* `Uuid` is a unique identifier for the invoice in the Navix system.\n* `ExternalOrderId` is the order id in your system that this invoice is for.\n* `FreightChargeTerms` is how the freight is paid. Possible values include: Collect, Prepaid, PrepaidAdd and ThirdParty\n* `DeliveryDate` is the UTC datetime of when the shipment was delivered.\n* `ShipDate` is the UTC datetime of when the shipment was shipped.\n* `Vendor`\n  * `ExternalId` is the id in your system that this vendor is known as.\n  * `SCAC` is the SCAC code for this vendor.\n* `Customer`\n  * `ExternalId` is the id in your system that this customer is known as.\n* `Stops`\n  * `Stops.Type` is what type of stop this is. Possible values include: Origin, Destination and BillTo.\n  * `Stops.City` is city for this stop.\n  * `Stops.Zip` is the zip code for this stop.\n  * `Stops.CountryCode` is the country code for this stop. Possible values include: USA, CAN and MEX.\n  * `Stops.StateCode` is the state code for this stop.\n* `LineItems`\n  * `LineItems.Description` is the description for this line item.\n  * `LineItems.HandlingUnit` is the container for this line item. Possible values include: Pallet, Drum, Bag, Barrels, Crates, Bundles, Piece, Loose, Boxes, Cases, Carton and Totes.\n  * `LineItems.HandlingUnitCode` is the alias for the HandlingUnit above.\n  * `LineItems.HandlingUnitCount` is how many containers are used for this line item\n  * `LineItems.Weight` is the weight for this line item.\n  * `LineItems.WeightUnit` is the weight system used for this line item. Possible values include: Imperial and Metric\n  * `LineItems.Class` is the shipping class.\n* `VendorCharges`\n  * `Code` the charge code in your system for this charge.\n\n### Rating Engine Response\n\nOnce the invoice has been rated, we need the results mapped in a format our system can understand. Please note that we are expecting a single rating engine response from your endpoint. You might have a rating engine that rate shops multiple vendors, please trim down your response to only include the selected vendor response.\n\nWe have provided an example below to show the structure and a sample of data. An explanation of the fields is below the example.\n```\n{\n  \"RawResponse\": \"...\",\n  \"RawResponseType\": \"JSON\",\n  \"VendorCharges\": [\n    {\n      \"Code\": \"ACH\",\n      \"Description\": \"LIMITED ACCESS DELIVERY\",\n      \"Amount\": 53.35\n    }\n  ],\n  \"CustomerCharges\": [\n    {\n      \"Code\": \"ACH\",\n      \"Description\": \"LIMITED ACCESS DELIVERY\",\n      \"Amount\": 59.35\n    }\n  ] \n}\n```\n\n* `RawResponse` is a raw response from your rating engine. This can be the response when a rate was returned or in the case where there was an exception from the rating engine. Providing this can be beneficial to auditors. Auditors will have the visibility to see this response in the UI.\n* `RawResponseType` is format of the `RawResponse` field. Possible values include: Json, Xml and Text.\n* `VendorCharges`\n  * `Code` the charge code in your system for this charge.\n  * `Description` is a description of the charge.\n  * `Amount` is the amount for this charge.\n* `CustomerCharges`\n  * `Code` is the as `VendorCharges.Code` above.\n  * `Description` is the as `VendorCharges.Description` above.\n  * `Amount` is the as `VendorCharges.Amount` above but relevant to a customer.",
-      "x-displayName": "Rating Engine"
     }
   ],
   "paths": {
@@ -101,7 +105,7 @@
         "deprecated": true,
         "security": [
           {
-            "Bearer": []
+            "x-api-key": []
           }
         ]
       }
@@ -168,7 +172,7 @@
         "deprecated": true,
         "security": [
           {
-            "Bearer": []
+            "x-api-key": []
           }
         ]
       }
@@ -238,9 +242,9 @@
             }
           },
           {
-            "name": "ResultsDelivered",
+            "name": "IncludeUnmatched",
             "in": "query",
-            "description": "Flag filter to return only Finalized Invoices which have been delivered or not.\r\nIf this flag is not set, then the filter is not applied.\r\nValues: true, false, Null.\r\nDefault value is Null",
+            "description": "Flag to include invoices that haven't been matched to any orders.\r\nThis parameter should only be used for tenants that are using or expecting orderless invoices.\r\nDefault value is false.",
             "schema": {
               "type": "boolean"
             }
@@ -266,7 +270,7 @@
         },
         "security": [
           {
-            "Bearer": []
+            "x-api-key": []
           }
         ]
       }
@@ -329,7 +333,7 @@
         },
         "security": [
           {
-            "Bearer": []
+            "x-api-key": []
           }
         ]
       }
@@ -410,7 +414,7 @@
         },
         "security": [
           {
-            "Bearer": []
+            "x-api-key": []
           }
         ]
       }
@@ -488,7 +492,7 @@
         },
         "security": [
           {
-            "Bearer": []
+            "x-api-key": []
           }
         ]
       }
@@ -499,7 +503,7 @@
           "API v2_Orders"
         ],
         "summary": "Create an order",
-        "description": "This creates a new order.\n\nThe endpoint validates the order, and returns a 400 if there's any invalid data being passed. A 202 response indicates the message has been durably stored and entered a highly-resilient workflow, and API consumers can assume the order will be successfully ingested.",
+        "description": "This upserts an order.\n\nThis can be used to create and update an order. The `externalId` is the unique identifier (and defaults to `orderNumber` if not provided or blank). So to update an order, you'd call this endpoint with the same `externalId` you used when creating the order.\n\nThe endpoint validates the order, and returns a 400 if there's any invalid data being passed. A 202 response indicates the message has been durably stored and entered a highly-resilient workflow, and API consumers can assume the order will be successfully ingested.",
         "operationId": "Order",
         "parameters": [
           {
@@ -521,7 +525,7 @@
           }
         ],
         "requestBody": {
-          "description": "(Required) The Order to create.",
+          "description": "(Required) The Order to create or update.",
           "content": {
             "application/json": {
               "schema": {
@@ -557,7 +561,7 @@
         },
         "security": [
           {
-            "X-Api-Key": []
+            "x-api-key": []
           }
         ]
       }
@@ -631,7 +635,83 @@
         },
         "security": [
           {
-            "X-Api-Key": []
+            "x-api-key": []
+          }
+        ]
+      }
+    },
+    "/v2/pre/documents": {
+      "post": {
+        "tags": [
+          "API v2_Pre-bill"
+        ],
+        "summary": "Ingest documents",
+        "description": "This endpoint ingests documents as a base64 string.  As the process is asynchronous the processed documents will not appear in the system instantaneously. \n* Uploads to this endpoint go through a complex machine learning process. It differs from the 'Document Attachment' endpoint which simply allows files to be uploaded and associated with an existing invoice record. \n* This process works with models trained on an existing suite of auditing documents, and is occasionally supplemented by a human-in-the-loop to help guide and improve training.\n* It performs the following steps: \n\n  * Works with any sort of audit-related document (invoice, bill of lading, notice of assignment, etc.) \n  * Works with files in multiple formats (PDF, JPG, PNG, TIFF, etc.)\n  * Separates pages within a file into multiple documents as necessary (e.g. separates an invoice on page 1 of a PDF from the bill of lading on page 2 of the same PDF file)\n  * Converts all document formats to PDF\n  * Classifies the document (currently based on a list of around 30 different document types)\n  * Identifies relevant fields in the documents (”Invoice Date”, “Ship To”, “Bill To”, etc.)\n  * Transcribes text and data from the documents (using OCR)\n  * For invoice documents, creates a new invoice record, based on the data transcribed from the invoice.  This may include supplemental data from other documents in the same submission. That is, if page 1 was an invoice and page 2 was a bill of lading, data from the bill of lading might be used on the invoice record if it wasn't present on the invoice\n  * For non-invoice documents, attempts to match the document with an existing invoice record (using reference numbers and other identifiers)\n  * Attach the resulting PDF file(s) to the invoice record. This occurs for both the invoice document itself and supporting documents.\n\nYou must be explicitly granted access to use this endpoint. Please contact your Customer Success Manager to request access.",
+        "operationId": "Document",
+        "parameters": [
+          {
+            "name": "X-Idempotency-Key",
+            "in": "header",
+            "description": "(Optional) Provide an X-Idempotency-Key to safely retry the request without accidentally performing the same operation twice.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Tenant-Uuid",
+            "in": "header",
+            "description": "(Required) Your tenant UUID.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "(Required) The documents to create.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/documentRequest"
+              },
+              "examples": {
+                "DocumentRequestExample": {
+                  "value": {
+                    "ExternalId": "ExternalPlatform123",
+                    "ExternalOrderId": "Order123",
+                    "ExternalInvoiceId": "Invoice123",
+                    "Files": [
+                      {
+                        "FileBase64String": "SGVsbG8sIFdvcmxkIQ==",
+                        "FileName": "invoice.png"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "No description"
+          },
+          "400": {
+            "description": "A detailed description of the error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/badRequestResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Invalid Documents"
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
           }
         ]
       }
@@ -733,7 +813,360 @@
         },
         "security": [
           {
-            "X-Api-Key": []
+            "x-api-key": []
+          }
+        ]
+      }
+    },
+    "/v2/documents/metadata/{documentUuid}": {
+      "get": {
+        "tags": [
+          "API v2_Pre-bill"
+        ],
+        "summary": "Get Document Metadata By Uuid",
+        "description": "Get a document. Note: the 'fields' property is highly variable and subject to change based on document transcription.",
+        "operationId": "GetDocument",
+        "parameters": [
+          {
+            "name": "X-Tenant-Uuid",
+            "in": "header",
+            "description": "(Required) Your tenant UUID.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentUuid",
+            "in": "path",
+            "description": "(Required) The UUID of the document.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The document.",
+            "content": {
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/documentResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Document"
+          },
+          "401": {
+            "description": "No description"
+          },
+          "403": {
+            "description": "No description"
+          },
+          "404": {
+            "description": "No description"
+          },
+          "500": {
+            "description": "No description"
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          }
+        ]
+      }
+    },
+    "/v2/attachment/{documentUuid}": {
+      "get": {
+        "tags": [
+          "API v2_Pre-bill"
+        ],
+        "summary": "Get one attachment",
+        "description": "This returns a single file binary for the given document.",
+        "operationId": "GetDocumentAttachment",
+        "parameters": [
+          {
+            "name": "X-Tenant-Uuid",
+            "in": "header",
+            "description": "(Required) Your tenant UUID.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentUuid",
+            "in": "path",
+            "description": "(Required) The UUID of the document.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A single attachment file",
+            "headers": {
+              "Content-Disposition": {
+                "description": "Specifies the presentation and file type of the response content.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Type": {
+                "description": "Specifies the MIME type of the response content.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "x-ms-summary": "Returns  a single attachment file for the given communication."
+          },
+          "404": {
+            "description": "The tenant UUID or the document UUID was not found",
+            "x-ms-summary": "Invoice not found"
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          }
+        ]
+      }
+    },
+    "/v2/documents/orders/{orderExternalId}": {
+      "get": {
+        "tags": [
+          "API v2_Pre-bill"
+        ],
+        "summary": "Get document Uuids",
+        "description": "Returns the Uuids of all the documents matched to an order, based on the order's uuid.",
+        "operationId": "DocumentUuidsGet",
+        "parameters": [
+          {
+            "name": "orderExternalId",
+            "in": "path",
+            "description": "(Required) The Order External Id of the Order.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Tenant-Uuid",
+            "in": "header",
+            "description": "(Required) Your tenant UUID.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of document uuids",
+            "content": {
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/documentUuidResponse"
+                  }
+                }
+              }
+            },
+            "x-ms-summary": "List of document uuids"
+          },
+          "400": {
+            "description": "A detailed description of the error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/badRequestResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Invalid Document"
+          },
+          "401": {
+            "description": "No description"
+          },
+          "403": {
+            "description": "No description"
+          },
+          "404": {
+            "description": "No description"
+          },
+          "500": {
+            "description": "No description"
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          }
+        ]
+      }
+    },
+    "/v2/documents/metadata/orders/{orderExternalId}": {
+      "get": {
+        "tags": [
+          "API v2_Pre-bill"
+        ],
+        "summary": "Get Document Metadata By OrderExternalId",
+        "description": "Returns the metadata of all the documents matched to an order, based on the order's orderExternalId.",
+        "operationId": "DocumentMetatadataGet",
+        "parameters": [
+          {
+            "name": "orderExternalId",
+            "in": "path",
+            "description": "(Required) The Order External Id of the Order.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Tenant-Uuid",
+            "in": "header",
+            "description": "(Required) Your tenant UUID.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of documents",
+            "content": {
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/documentResponse"
+                  }
+                }
+              }
+            },
+            "x-ms-summary": "List of documents"
+          },
+          "400": {
+            "description": "A detailed description of the error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/badRequestResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Invalid Document"
+          },
+          "401": {
+            "description": "No description"
+          },
+          "403": {
+            "description": "No description"
+          },
+          "404": {
+            "description": "No description"
+          },
+          "500": {
+            "description": "No description"
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          }
+        ]
+      }
+    },
+    "/v2/documents/approved": {
+      "post": {
+        "tags": [
+          "API v2_Pre-bill"
+        ],
+        "summary": "Get List of Approved Documents",
+        "description": "Returns a list of approved documents within the specified time interval",
+        "operationId": "GetApprovedDocuments",
+        "parameters": [
+          {
+            "name": "X-Tenant-Uuid",
+            "in": "header",
+            "description": "(Required) Your tenant UUID.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "(Required) The search parameters.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/documentsApprovedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "List of documents",
+            "content": {
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/documentsApprovedResponse"
+                  }
+                }
+              }
+            },
+            "x-ms-summary": "List of documents"
+          },
+          "400": {
+            "description": "A detailed description of the error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/badRequestResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Invalid Document"
+          },
+          "401": {
+            "description": "No description"
+          },
+          "403": {
+            "description": "No description"
+          },
+          "404": {
+            "description": "No description"
+          },
+          "500": {
+            "description": "No description"
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
           }
         ]
       }
@@ -782,30 +1215,30 @@
                   "DisputeResponseListExample": {
                     "value": [
                       {
-                        "Uuid": "d90a7841-b4eb-4c02-a4bf-667ea0f888c4",
+                        "Uuid": "b3d191d0-df78-4e02-82bc-7989e53bed85",
                         "ETag": null,
-                        "CreatedAt": "2025-09-04T15:09:43.2468663Z",
-                        "ResolvedAt": "2025-09-08T15:09:43.2468938Z",
+                        "CreatedAt": "2026-05-16T13:49:41.6360614Z",
+                        "ResolvedAt": "2026-05-20T13:49:41.6360814Z",
                         "Party": "Tenant",
                         "Reasons": [
                           {
                             "Description": "Approval Required",
-                            "CreatedAt": "2025-09-04T15:09:43.2469631Z",
-                            "ResolvedAt": "2025-09-08T15:09:43.2470013Z"
+                            "CreatedAt": "2026-05-16T13:49:41.6361312Z",
+                            "ResolvedAt": "2026-05-20T13:49:41.636159Z"
                           }
                         ]
                       },
                       {
-                        "Uuid": "53040c6d-02a2-4ae4-9d7b-ea4ef443979e",
+                        "Uuid": "9b9439cd-9433-470e-bcbf-e6346815866f",
                         "ETag": null,
-                        "CreatedAt": "2025-09-04T15:09:43.2470437Z",
-                        "ResolvedAt": "2025-09-08T15:09:43.2470438Z",
+                        "CreatedAt": "2026-05-16T13:49:41.6361896Z",
+                        "ResolvedAt": "2026-05-20T13:49:41.6361897Z",
                         "Party": "Vendor",
                         "Reasons": [
                           {
                             "Description": "Accessorial Waived",
-                            "CreatedAt": "2025-09-04T15:09:43.2470441Z",
-                            "ResolvedAt": "2025-09-08T15:09:43.2470442Z"
+                            "CreatedAt": "2026-05-16T13:49:41.63619Z",
+                            "ResolvedAt": "2026-05-20T13:49:41.6361901Z"
                           }
                         ]
                       }
@@ -823,7 +1256,7 @@
         },
         "security": [
           {
-            "X-Api-Key": []
+            "x-api-key": []
           }
         ]
       }
@@ -886,7 +1319,7 @@
         },
         "security": [
           {
-            "X-Api-Key": []
+            "x-api-key": []
           }
         ]
       }
@@ -983,7 +1416,7 @@
         },
         "security": [
           {
-            "X-Api-Key": []
+            "x-api-key": []
           }
         ]
       }
@@ -1042,8 +1475,8 @@
                   "CommunicationResponseListExample": {
                     "value": [
                       {
-                        "Uuid": "59d7757e-4636-4f22-a67b-735c2e58218e",
-                        "CreatedAt": "2025-09-04T15:09:43.2596235Z",
+                        "Uuid": "8d2db9c0-381b-4c95-a762-b5672e25a4f2",
+                        "CreatedAt": "2026-05-16T13:49:41.6557982Z",
                         "Text": "Weight on order did not match invoice, please provide a Weight Certificate or Inspection Certificate for L12345",
                         "Email": {
                           "To": [
@@ -1057,8 +1490,8 @@
                         "Attachments": []
                       },
                       {
-                        "Uuid": "ee662e84-0532-47cc-8a89-2bcafc6469d5",
-                        "CreatedAt": "2025-09-05T15:09:43.2597845Z",
+                        "Uuid": "6e285998-b73c-4eba-b2da-08168d39ec32",
+                        "CreatedAt": "2026-05-17T13:49:41.6559327Z",
                         "Text": "Please see the attached weight certificate for L12345",
                         "Email": {
                           "To": [
@@ -1071,7 +1504,8 @@
                         },
                         "Attachments": [
                           {
-                            "Identifier": "da45475b-f548-49b6-8613-ad0f1033a5f8"
+                            "Identifier": "2e36efca-61dd-4dac-b30a-9edc6a2a5971",
+                            "FileName": "WeightCertificate-L12345.pdf"
                           }
                         ]
                       }
@@ -1089,7 +1523,7 @@
         },
         "security": [
           {
-            "X-Api-Key": []
+            "x-api-key": []
           }
         ]
       },
@@ -1168,7 +1602,93 @@
         },
         "security": [
           {
-            "X-Api-Key": []
+            "x-api-key": []
+          }
+        ]
+      }
+    },
+    "/v2/invoices/{invoiceUuid}/payments": {
+      "post": {
+        "tags": [
+          "API v2_Payments"
+        ],
+        "summary": "Submit payment for invoice",
+        "description": "This endpoint submits a payment for an existing invoice. The payment is processed asynchronously. Duplicate payments (same invoice + payment reference) will be rejected with a 409 Conflict.",
+        "operationId": "Payment",
+        "parameters": [
+          {
+            "name": "invoiceUuid",
+            "in": "path",
+            "description": "(Required) The UUID of the invoice to apply the payment to.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Tenant-Uuid",
+            "in": "header",
+            "description": "(Required) Your tenant UUID.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "(Required) The payment details.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/paymentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "The payment was accepted and will be processed asynchronously.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/paymentResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Payment accepted for processing"
+          },
+          "400": {
+            "description": "A detailed description of the validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/badRequestResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Invalid payment request"
+          },
+          "401": {
+            "description": "The user or tenant are not authorized to access this endpoint",
+            "x-ms-summary": "Unauthorized"
+          },
+          "403": {
+            "description": "The tenant is not authorized to access this endpoint",
+            "x-ms-summary": "Forbidden"
+          },
+          "500": {
+            "description": "An internal server error has occurred",
+            "x-ms-summary": "Internal Server Error"
+          },
+          "503": {
+            "description": "The payment endpoint is temporarily unavailable",
+            "x-ms-summary": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
           }
         ]
       }
@@ -1221,7 +1741,7 @@
         },
         "security": [
           {
-            "X-Api-Key": []
+            "x-api-key": []
           }
         ]
       }
@@ -1274,7 +1794,7 @@
         },
         "security": [
           {
-            "X-Api-Key": []
+            "x-api-key": []
           }
         ]
       }
@@ -1359,7 +1879,7 @@
         },
         "security": [
           {
-            "X-Api-Key": []
+            "x-api-key": []
           }
         ]
       }
@@ -1431,7 +1951,7 @@
         },
         "security": [
           {
-            "X-Api-Key": []
+            "x-api-key": []
           }
         ]
       }
@@ -1514,7 +2034,7 @@
         },
         "security": [
           {
-            "X-Api-Key": []
+            "x-api-key": []
           }
         ]
       }
@@ -1590,493 +2110,7 @@
         },
         "security": [
           {
-            "X-Api-Key": []
-          }
-        ]
-      }
-    },
-    "/v2/pre/documents": {
-      "post": {
-        "tags": [
-          "Provisional_Documents"
-        ],
-        "summary": "Ingest documents",
-        "description": "This endpoint ingests documents as a base64 string.  As the process is asynchronous the processed documents will not appear in the system instantaneously. \n* Uploads to this endpoint go through a complex machine learning process. It differs from the 'Document Attachment' endpoint which simply allows files to be uploaded and associated with an existing invoice record. \n* This process works with models trained on an existing suite of auditing documents, and is occasionally supplemented by a human-in-the-loop to help guide and improve training.\n* It performs the following steps: \n\n  * Works with any sort of audit-related document (invoice, bill of lading, notice of assignment, etc.) \n  * Works with files in multiple formats (PDF, JPG, PNG, TIFF, etc.)\n  * Separates pages within a file into multiple documents as necessary (e.g. separates an invoice on page 1 of a PDF from the bill of lading on page 2 of the same PDF file)\n  * Converts all document formats to PDF\n  * Classifies the document (currently based on a list of around 30 different document types)\n  * Identifies relevant fields in the documents (”Invoice Date”, “Ship To”, “Bill To”, etc.)\n  * Transcribes text and data from the documents (using OCR)\n  * For invoice documents, creates a new invoice record, based on the data transcribed from the invoice.  This may include supplemental data from other documents in the same submission. That is, if page 1 was an invoice and page 2 was a bill of lading, data from the bill of lading might be used on the invoice record if it wasn't present on the invoice\n  * For non-invoice documents, attempts to match the document with an existing invoice record (using reference numbers and other identifiers)\n  * Attach the resulting PDF file(s) to the invoice record. This occurs for both the invoice document itself and supporting documents.\n\nYou must be explicitly granted access to use this endpoint. Please contact your Customer Success Manager to request access.",
-        "operationId": "Document",
-        "parameters": [
-          {
-            "name": "X-Idempotency-Key",
-            "in": "header",
-            "description": "(Optional) Provide an X-Idempotency-Key to safely retry the request without accidentally performing the same operation twice.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "X-Tenant-Uuid",
-            "in": "header",
-            "description": "(Required) Your tenant UUID.",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "(Required) The documents to create.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/documentRequest"
-              },
-              "examples": {
-                "DocumentRequestExample": {
-                  "value": {
-                    "ExternalId": "ExternalPlatform123",
-                    "ExternalOrderId": "Order123",
-                    "ExternalInvoiceId": "Invoice123",
-                    "Files": [
-                      {
-                        "FileBase64String": "SGVsbG8sIFdvcmxkIQ==",
-                        "FileName": "invoice.png"
-                      }
-                    ]
-                  }
-                }
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "description": "No description"
-          },
-          "400": {
-            "description": "A detailed description of the error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/badRequestResponse"
-                }
-              }
-            },
-            "x-ms-summary": "Invalid Documents"
-          }
-        },
-        "security": [
-          {
-            "X-Api-Key": []
-          }
-        ]
-      }
-    },
-    "/v2/documents/metadata/{documentUuid}": {
-      "get": {
-        "tags": [
-          "Provisional_Documents"
-        ],
-        "summary": "Get Document Metadata By Uuid",
-        "description": "Get a document. Note: the 'fields' property is highly variable and subject to change based on document transcription.",
-        "operationId": "GetDocument",
-        "parameters": [
-          {
-            "name": "X-Tenant-Uuid",
-            "in": "header",
-            "description": "(Required) Your tenant UUID.",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "documentUuid",
-            "in": "path",
-            "description": "(Required) The UUID of the document.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The document.",
-            "content": {
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/documentResponse"
-                }
-              }
-            },
-            "x-ms-summary": "Document"
-          },
-          "401": {
-            "description": "No description"
-          },
-          "403": {
-            "description": "No description"
-          },
-          "404": {
-            "description": "No description"
-          },
-          "500": {
-            "description": "No description"
-          }
-        },
-        "security": [
-          {
-            "X-Api-Key": []
-          }
-        ]
-      }
-    },
-    "/v2/attachment/{documentUuid}": {
-      "get": {
-        "tags": [
-          "Provisional_Documents"
-        ],
-        "summary": "Get one attachment",
-        "description": "This returns a single file binary for the given document.",
-        "operationId": "GetDocumentAttachment",
-        "parameters": [
-          {
-            "name": "X-Tenant-Uuid",
-            "in": "header",
-            "description": "(Required) Your tenant UUID.",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "documentUuid",
-            "in": "path",
-            "description": "(Required) The UUID of the document.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "A single attachment file",
-            "headers": {
-              "Content-Disposition": {
-                "description": "Specifies the presentation and file type of the response content.",
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "Content-Type": {
-                "description": "Specifies the MIME type of the response content.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            },
-            "x-ms-summary": "Returns  a single attachment file for the given communication."
-          },
-          "404": {
-            "description": "The tenant UUID or the document UUID was not found",
-            "x-ms-summary": "Invoice not found"
-          }
-        },
-        "security": [
-          {
-            "X-Api-Key": []
-          }
-        ]
-      }
-    },
-    "/v2/documents/orders/{orderExternalId}": {
-      "get": {
-        "tags": [
-          "Provisional_Documents"
-        ],
-        "summary": "Get document Uuids",
-        "description": "Returns the Uuids of all the documents matched to an order, based on the order's uuid.",
-        "operationId": "DocumentUuidsGet",
-        "parameters": [
-          {
-            "name": "orderExternalId",
-            "in": "path",
-            "description": "(Required) The Order External Id of the Order.",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "X-Tenant-Uuid",
-            "in": "header",
-            "description": "(Required) Your tenant UUID.",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of document uuids",
-            "content": {
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/documentUuidResponse"
-                  }
-                }
-              }
-            },
-            "x-ms-summary": "List of document uuids"
-          },
-          "400": {
-            "description": "A detailed description of the error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/badRequestResponse"
-                }
-              }
-            },
-            "x-ms-summary": "Invalid Document"
-          },
-          "401": {
-            "description": "No description"
-          },
-          "403": {
-            "description": "No description"
-          },
-          "404": {
-            "description": "No description"
-          },
-          "500": {
-            "description": "No description"
-          }
-        },
-        "security": [
-          {
-            "X-Api-Key": []
-          }
-        ]
-      }
-    },
-    "/v2/documents/metadata/orders/{orderExternalId}": {
-      "get": {
-        "tags": [
-          "Provisional_Documents"
-        ],
-        "summary": "Get Document Metadata By OrderExternalId",
-        "description": "Returns the metadata of all the documents matched to an order, based on the order's orderExternalId.",
-        "operationId": "DocumentMetatadataGet",
-        "parameters": [
-          {
-            "name": "orderExternalId",
-            "in": "path",
-            "description": "(Required) The Order External Id of the Order.",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "X-Tenant-Uuid",
-            "in": "header",
-            "description": "(Required) Your tenant UUID.",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of documents",
-            "content": {
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/documentResponse"
-                  }
-                }
-              }
-            },
-            "x-ms-summary": "List of documents"
-          },
-          "400": {
-            "description": "A detailed description of the error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/badRequestResponse"
-                }
-              }
-            },
-            "x-ms-summary": "Invalid Document"
-          },
-          "401": {
-            "description": "No description"
-          },
-          "403": {
-            "description": "No description"
-          },
-          "404": {
-            "description": "No description"
-          },
-          "500": {
-            "description": "No description"
-          }
-        },
-        "security": [
-          {
-            "X-Api-Key": []
-          }
-        ]
-      }
-    },
-    "/v2/documents/approved": {
-      "post": {
-        "tags": [
-          "Provisional_Documents"
-        ],
-        "summary": "Get List of Approved Documents",
-        "description": "Returns a list of approved documents within the specified time interval",
-        "operationId": "GetApprovedDocuments",
-        "parameters": [
-          {
-            "name": "X-Tenant-Uuid",
-            "in": "header",
-            "description": "(Required) Your tenant UUID.",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "(Required) The search parameters.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/documentsApprovedRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "List of documents",
-            "content": {
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/documentsApprovedResponse"
-                  }
-                }
-              }
-            },
-            "x-ms-summary": "List of documents"
-          },
-          "400": {
-            "description": "A detailed description of the error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/badRequestResponse"
-                }
-              }
-            },
-            "x-ms-summary": "Invalid Document"
-          },
-          "401": {
-            "description": "No description"
-          },
-          "403": {
-            "description": "No description"
-          },
-          "404": {
-            "description": "No description"
-          },
-          "500": {
-            "description": "No description"
-          }
-        },
-        "security": [
-          {
-            "X-Api-Key": []
-          }
-        ]
-      }
-    },
-    "/v2/pre/documents/textlocate": {
-      "post": {
-        "tags": [
-          "Provisional_Documents"
-        ],
-        "summary": "TextLocate Webhook",
-        "description": "Webhook endpoint for TextLocate to notify about new documents. This endpoint will process the images and forward them to the document ingestion pipeline.",
-        "operationId": "TextLocateWebhook",
-        "parameters": [
-          {
-            "name": "tenantUuid",
-            "in": "header",
-            "description": "(Required) The tenant UUID.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "signature",
-            "in": "header",
-            "description": "(Required) The Signature from TextLocate.",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/textLocateWebhookRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "description": "The webhook was processed successfully"
-          },
-          "400": {
-            "description": "Invalid request"
-          },
-          "401": {
-            "description": "Invalid API key"
-          }
-        },
-        "security": [
-          {
-            "apiKey": []
+            "x-api-key": []
           }
         ]
       }
@@ -2178,6 +2212,21 @@
         ],
         "type": "string"
       },
+      "DatabaseMigrations.Domain.Enums.Qualifier": {
+        "enum": [
+          "PerPound",
+          "PerHundredweight",
+          "PerTon",
+          "PerMile",
+          "PerKilometer",
+          "PerHour",
+          "PerCase",
+          "PerPallet",
+          "PerUnit",
+          "Percent"
+        ],
+        "type": "string"
+      },
       "Invoice.Application.Models.Enums.VendorInvoiceDocumentTypesEnum": {
         "enum": [
           "Invoice",
@@ -2239,7 +2288,8 @@
           "LoadCoverSheet",
           "SafetyChecklist",
           "WalmartDeliveryConfirmationReport",
-          "StatementInvoice"
+          "StatementInvoice",
+          "TripSheet"
         ],
         "type": "string"
       },
@@ -2290,6 +2340,23 @@
           "reason": {
             "type": "string",
             "description": "The reason that accompanies the finalized charge amount. This may be empty if there is no variance.",
+            "nullable": true
+          },
+          "rate": {
+            "type": "number",
+            "description": "Rate per unit for Charge calculation. Must be specified with Quantity and Qualifier or all must be null.\r\nWhen all three are provided, Charge is calculated as Rate × Quantity.",
+            "format": "double",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Quantity for Charge calculation. Must be specified with Rate and Qualifier or all must be null.\r\nWhen all three are provided, Charge is calculated as Rate × Quantity.",
+            "format": "double",
+            "nullable": true
+          },
+          "qualifier": {
+            "type": "string",
+            "description": "Rate qualifier for Charge calculation (e.g., PerPound, PerMile). Must be specified with Rate and Quantity or all must be null.\r\nWhen all three are provided, Charge is calculated as Rate × Quantity.",
             "nullable": true
           }
         },
@@ -2626,6 +2693,23 @@
             "type": "string",
             "description": "The reason that accompanies the finalized charge amount. This may be empty if there is no variance.",
             "nullable": true
+          },
+          "rate": {
+            "type": "number",
+            "description": "Rate per unit for Charge calculation. Must be specified with Quantity and Qualifier or all must be null.\r\nWhen all three are provided, Charge is calculated as Rate × Quantity.",
+            "format": "double",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Quantity for Charge calculation. Must be specified with Rate and Qualifier or all must be null.\r\nWhen all three are provided, Charge is calculated as Rate × Quantity.",
+            "format": "double",
+            "nullable": true
+          },
+          "qualifier": {
+            "type": "string",
+            "description": "Rate qualifier for Charge calculation (e.g., PerPound, PerMile). Must be specified with Rate and Quantity or all must be null.\r\nWhen all three are provided, Charge is calculated as Rate × Quantity.",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -2787,6 +2871,21 @@
             "type": "string",
             "description": "The description used by the vendor to identify a charge.",
             "nullable": true
+          },
+          "rate": {
+            "type": "number",
+            "description": "Rate per unit for qualified charges. Must be specified with Quantity and Qualifier or all must be null.",
+            "format": "double",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Quantity for qualified charges. Must be specified with Rate and Qualifier or all must be null.",
+            "format": "double",
+            "nullable": true
+          },
+          "qualifier": {
+            "$ref": "#/components/schemas/DatabaseMigrations.Domain.Enums.Qualifier"
           },
           "uuid": {
             "type": "string",
@@ -3194,6 +3293,23 @@
             "type": "string",
             "description": "The reason that accompanies the finalized charge amount. This may be empty if there is no variance.",
             "nullable": true
+          },
+          "rate": {
+            "type": "number",
+            "description": "Rate per unit for Charge calculation. Must be specified with Quantity and Qualifier or all must be null.\r\nWhen all three are provided, Charge is calculated as Rate × Quantity.",
+            "format": "double",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Quantity for Charge calculation. Must be specified with Rate and Qualifier or all must be null.\r\nWhen all three are provided, Charge is calculated as Rate × Quantity.",
+            "format": "double",
+            "nullable": true
+          },
+          "qualifier": {
+            "type": "string",
+            "description": "Rate qualifier for Charge calculation (e.g., PerPound, PerMile). Must be specified with Rate and Quantity or all must be null.\r\nWhen all three are provided, Charge is calculated as Rate × Quantity.",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -3229,6 +3345,13 @@
             "nullable": true,
             "example": 100.3
           },
+          "totalVendorInvoicedAmount": {
+            "type": "number",
+            "description": "The total amount originally invoiced by the vendor (sum of all ingested vendor charges before any audit adjustments).\r\nNull when no vendor charges are present.",
+            "format": "double",
+            "nullable": true,
+            "example": 105.75
+          },
           "currencyCode": {
             "type": "string",
             "description": "The currency used with this invoice. Possible values are:\r\n* `USD`: US Dollar\r\n* `CAD`: Canadian Dollar",
@@ -3244,6 +3367,17 @@
             "type": "string",
             "description": "The date (without time) the invoice was finalized (either approved or terminated). Note that terminated invoices still have a value here.",
             "format": "date"
+          },
+          "paymentTerms": {
+            "type": "string",
+            "description": "Number of days until payment is due.",
+            "nullable": true
+          },
+          "dueDate": {
+            "type": "string",
+            "description": "The calculated date when payment for this invoice is due.",
+            "format": "date-time",
+            "nullable": true
           },
           "approverEmail": {
             "type": "string",
@@ -3307,6 +3441,14 @@
             },
             "description": "The list of Stops",
             "nullable": true
+          },
+          "payments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Invoice.Models.Integrations.InvoiceAuditResultPaymentV2"
+            },
+            "description": "Payment records associated with this invoice.",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -3364,6 +3506,13 @@
             "description": "The name of the user who last modified the document.",
             "nullable": true,
             "example": "John Doe"
+          },
+          "orderStopSequence": {
+            "type": "integer",
+            "description": "The stop sequence this document is assigned to.\r\nReferences a Destination stop on the Order.\r\nNull if unassigned.",
+            "format": "int32",
+            "nullable": true,
+            "example": 2
           }
         },
         "additionalProperties": false
@@ -3527,6 +3676,12 @@
             "nullable": true,
             "example": "CUST123"
           },
+          "externalId": {
+            "type": "string",
+            "description": "The external id of the order, mastered by the tenant's system. If the order has no external id, this defaults to the order number.\r\nNull when no order is attached to the invoice.",
+            "nullable": true,
+            "example": "ORD-EXT-12345"
+          },
           "metadata": {
             "type": "object",
             "additionalProperties": {
@@ -3546,9 +3701,38 @@
                 "Sample1": "Value1"
               }
             }
+          },
+          "orderApproved": {
+            "type": "boolean",
+            "description": "Whether the order attached to this invoice has been approved. If no order is attached to the invoice, or the order has not been approved, this will be false.",
+            "example": true
           }
         },
         "additionalProperties": false
+      },
+      "Invoice.Models.Integrations.InvoiceAuditResultPaymentV2": {
+        "type": "object",
+        "properties": {
+          "amountPaid": {
+            "type": "number",
+            "description": "The amount paid in this payment.",
+            "format": "double",
+            "example": 500
+          },
+          "paymentDate": {
+            "type": "string",
+            "description": "The date when the payment was made.",
+            "format": "date-time"
+          },
+          "paymentReference": {
+            "type": "string",
+            "description": "A reference identifier for the payment (e.g., check number, transaction ID).",
+            "nullable": true,
+            "example": "CHK-12345"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Payment record associated with an invoice."
       },
       "Invoice.Models.Integrations.InvoiceAuditResultStopAddressV2": {
         "type": "object",
@@ -3673,6 +3857,23 @@
             "type": "string",
             "description": "The reason that accompanies the finalized charge amount. This may be empty if there is no variance.",
             "nullable": true
+          },
+          "rate": {
+            "type": "number",
+            "description": "Rate per unit for Charge calculation. Must be specified with Quantity and Qualifier or all must be null.\r\nWhen all three are provided, Charge is calculated as Rate × Quantity.",
+            "format": "double",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Quantity for Charge calculation. Must be specified with Rate and Qualifier or all must be null.\r\nWhen all three are provided, Charge is calculated as Rate × Quantity.",
+            "format": "double",
+            "nullable": true
+          },
+          "qualifier": {
+            "type": "string",
+            "description": "Rate qualifier for Charge calculation (e.g., PerPound, PerMile). Must be specified with Rate and Quantity or all must be null.\r\nWhen all three are provided, Charge is calculated as Rate × Quantity.",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -3752,6 +3953,11 @@
           "identifier": {
             "type": "string",
             "description": "A communication attachment identifier for downloading the file"
+          },
+          "fileName": {
+            "type": "string",
+            "description": "The original file name of the attachment",
+            "nullable": true
           }
         }
       },
@@ -3776,8 +3982,7 @@
             "type": "string",
             "description": "The subject line of the email"
           }
-        },
-        "description": "If the communication was an email, this is the email-specific parts of the communication; otherwise this is null"
+        }
       },
       "communicationRequest": {
         "type": "object",
@@ -3810,7 +4015,12 @@
             "description": "The text of the communication. If it was an email, this is the email body"
           },
           "email": {
-            "$ref": "#/components/schemas/communicationEmailResponse"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/communicationEmailResponse"
+              }
+            ],
+            "description": "If the communication was an email, this is the email-specific parts of the communication; otherwise this is null"
           },
           "attachments": {
             "type": "array",
@@ -3886,16 +4096,16 @@
           }
         },
         "example": {
-          "Uuid": "27a48d79-7fc0-46a2-b559-09f45cc90e34",
+          "Uuid": "05e28989-cf7b-423f-bb28-3173a95f88a1",
           "ETag": null,
-          "CreatedAt": "2025-09-04T15:09:43.5149925Z",
-          "ResolvedAt": "2025-09-08T15:09:43.5149946Z",
+          "CreatedAt": "2026-05-16T13:49:41.9440609Z",
+          "ResolvedAt": "2026-05-20T13:49:41.9440639Z",
           "Party": "Tenant",
           "Reasons": [
             {
               "Description": "Approval Required",
-              "CreatedAt": "2025-09-04T15:09:43.5149961Z",
-              "ResolvedAt": "2025-09-08T15:09:43.5149963Z"
+              "CreatedAt": "2026-05-16T13:49:41.9440652Z",
+              "ResolvedAt": "2026-05-20T13:49:41.9440654Z"
             }
           ]
         }
@@ -3910,24 +4120,29 @@
           "type": {
             "enum": [
               "Unset",
+              "Unspecified",
               "Invoice",
               "DeliveryReceipt",
               "ProofOfDelivery",
               "BillOfLading",
               "NoticeOfAssignment",
               "RateConfirmation",
+              "WeightAndInspectionCert",
               "WeightAndInspectionCertificate",
               "LetterOfAuthority",
               "LumperReceipt",
               "PackingList",
               "GeneratedInvoice",
               "Email",
+              "InboundEmail",
               "CommercialInvoice",
               "CertificateOfOrigin",
               "CustomerRateConfirmation",
               "ElectronicInterchangeReceipt",
               "GatePass",
+              "GateOutInTicket",
               "InsuranceCertificate",
+              "Reserved19",
               "OtherReceipt",
               "W9",
               "DeliveryOrder",
@@ -3951,11 +4166,14 @@
               "TargetTripSheet",
               "ExitPass",
               "PortOfArthurBOL",
+              "PortOfArthurBol",
               "ColdChainCustodyForm",
               "IGFFreightDispatch",
+              "IgfFreightDispatch",
               "EquipmentSubmissionForm",
               "Release",
               "ACIManifest",
+              "AciManifest",
               "TrailerPicture",
               "MaterialSafetyDataSheet",
               "ShipTicket",
@@ -3966,12 +4184,14 @@
               "HistoricalAuditDocuments",
               "DetentionReceipt",
               "Unknown",
+              "Reserved58",
               "Manifest",
               "CustomerRateApproval",
               "LoadCoverSheet",
               "SafetyChecklist",
               "WalmartDeliveryConfirmationReport",
-              "StatementInvoice"
+              "StatementInvoice",
+              "TripSheet"
             ],
             "type": "string",
             "description": "The document type."
@@ -3988,6 +4208,209 @@
           "uuid": {
             "type": "string",
             "description": "The unique identifier for the Document",
+            "format": "uuid"
+          }
+        }
+      },
+      "documentRequest": {
+        "required": [
+          "files"
+        ],
+        "type": "object",
+        "properties": {
+          "externalId": {
+            "type": "string",
+            "description": "The external system's unique identifier used to correlate this document request"
+          },
+          "externalOrderId": {
+            "type": "string",
+            "description": "The unique identifier the tenant has assigned for the Invoice, if any"
+          },
+          "externalInvoiceId": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/supportingDocumentRequest"
+            },
+            "description": "A list of documents in Base64 format"
+          }
+        }
+      },
+      "documentResponse": {
+        "type": "object",
+        "properties": {
+          "uuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "orderExternalId": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "Unset",
+              "Unspecified",
+              "Invoice",
+              "DeliveryReceipt",
+              "ProofOfDelivery",
+              "BillOfLading",
+              "NoticeOfAssignment",
+              "RateConfirmation",
+              "WeightAndInspectionCert",
+              "WeightAndInspectionCertificate",
+              "LetterOfAuthority",
+              "LumperReceipt",
+              "PackingList",
+              "GeneratedInvoice",
+              "Email",
+              "InboundEmail",
+              "CommercialInvoice",
+              "CertificateOfOrigin",
+              "CustomerRateConfirmation",
+              "ElectronicInterchangeReceipt",
+              "GatePass",
+              "GateOutInTicket",
+              "InsuranceCertificate",
+              "Reserved19",
+              "OtherReceipt",
+              "W9",
+              "DeliveryOrder",
+              "WeightScaleTicket",
+              "TrailerInterchangeReceipt",
+              "PurchaseOrder",
+              "EscortTicket",
+              "PermitReceipt",
+              "ServiceOrder",
+              "CertificateOfDestruction",
+              "DonationReceipt",
+              "SmartAndFinalStamp",
+              "InboundTripReport",
+              "WeighmasterCertificate",
+              "CargoActivitySheet",
+              "WeberBOL",
+              "TimeCard",
+              "TransferSheet",
+              "TripManifest",
+              "TrailerControlRecord",
+              "TargetTripSheet",
+              "ExitPass",
+              "PortOfArthurBOL",
+              "PortOfArthurBol",
+              "ColdChainCustodyForm",
+              "IGFFreightDispatch",
+              "IgfFreightDispatch",
+              "EquipmentSubmissionForm",
+              "Release",
+              "ACIManifest",
+              "AciManifest",
+              "TrailerPicture",
+              "MaterialSafetyDataSheet",
+              "ShipTicket",
+              "DeliveryTicket",
+              "InvoiceCorrected",
+              "EIRTicket",
+              "PalletReceipt",
+              "HistoricalAuditDocuments",
+              "DetentionReceipt",
+              "Unknown",
+              "Reserved58",
+              "Manifest",
+              "CustomerRateApproval",
+              "LoadCoverSheet",
+              "SafetyChecklist",
+              "WalmartDeliveryConfirmationReport",
+              "StatementInvoice",
+              "TripSheet"
+            ],
+            "type": "string",
+            "default": "Unset"
+          },
+          "status": {
+            "enum": [
+              "Draft",
+              "Ready",
+              "Approved"
+            ],
+            "type": "string",
+            "default": "Draft"
+          },
+          "hasSignature": {
+            "type": "boolean"
+          },
+          "approvedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "approvedBy": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "orderStopSequence": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "example": {
+          "Uuid": "3df3a28e-b964-4195-aa29-85960c0386d0",
+          "OrderExternalId": "ORD_123",
+          "Type": "BillOfLading",
+          "Status": "Approved",
+          "HasSignature": true,
+          "ApprovedAt": "2026-05-21T13:49:41.9398049Z",
+          "ApprovedBy": "john.smith@freight.com",
+          "Filename": "BOL.pdf",
+          "OrderStopSequence": 2
+        }
+      },
+      "documentsApprovedRequest": {
+        "required": [
+          "startTime"
+        ],
+        "type": "object",
+        "properties": {
+          "startTime": {
+            "minLength": 1,
+            "type": "string",
+            "format": "date-time"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "documentsApprovedResponse": {
+        "type": "object",
+        "properties": {
+          "documentUuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "orderExternalId": {
+            "type": "string"
+          }
+        }
+      },
+      "documentUuidResponse": {
+        "type": "object",
+        "properties": {
+          "uuid": {
+            "type": "string",
             "format": "uuid"
           }
         }
@@ -4063,7 +4486,6 @@
             "description": "The five digit postal code for `USA` or `MEX`. Will accept 6 digits if the country is `CAN` "
           }
         },
-        "description": "The physical address of the Stop",
         "nullable": true
       },
       "invoiceChargeCodeRequest": {
@@ -4094,20 +4516,19 @@
             "type": "string",
             "description": "The Code value"
           }
-        },
-        "description": "A list of charge codes."
+        }
       },
       "invoiceChargeRequest": {
         "required": [
-          "charge",
           "code"
         ],
         "type": "object",
         "properties": {
           "charge": {
             "type": "number",
-            "description": "The charge amount",
-            "format": "double"
+            "description": "The total charge amount. Provide this for a flat charge, or omit it and provide Rate, Quantity, and Qualifier instead for calculated charges. Values are automatically rounded to 4 decimal places (e.g., 1.23435 becomes 1.2344). Cannot be used together with Rate/Quantity/Qualifier.",
+            "format": "double",
+            "nullable": true
           },
           "itemId": {
             "maxLength": 64,
@@ -4116,7 +4537,41 @@
             "description": "The unique identifier of an associated Item, if applicable. To classify a charge as a Base Rate, tenants can include the associated `Items.Id` value here. If no item Id is provided with a charge, Navix classification of charge process will continue"
           },
           "code": {
-            "$ref": "#/components/schemas/invoiceChargeCodeRequest"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/invoiceChargeCodeRequest"
+              }
+            ],
+            "description": "A list of charge codes."
+          },
+          "rate": {
+            "type": "number",
+            "description": "The rate per unit for calculated charges (e.g., $2.50 per mile, $15.00 per hour). Required when Charge is not provided. Must be used with Quantity and Qualifier. Values are automatically rounded to 4 decimal places (e.g., 1.23435 becomes 1.2344).",
+            "format": "double",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "number",
+            "description": "The quantity of units for calculated charges (e.g., 100 miles, 3.5 hours). Required when Charge is not provided. Must be used with Rate and Qualifier. The total charge is calculated as Rate × Quantity. Values are automatically rounded to 4 decimal places (e.g., 1.23435 becomes 1.2344).",
+            "format": "double",
+            "nullable": true
+          },
+          "qualifier": {
+            "enum": [
+              "PerPound",
+              "PerHundredweight",
+              "PerTon",
+              "PerMile",
+              "PerKilometer",
+              "PerHour",
+              "PerCase",
+              "PerPallet",
+              "PerUnit",
+              "Percent"
+            ],
+            "type": "string",
+            "description": "The unit type for calculated charges (e.g., PerMile, PerHour, PerPallet). Required when Charge is not provided. Must be used with Rate and Quantity. Defines what the Rate and Quantity represent for charge calculation.",
+            "nullable": true
           }
         }
       },
@@ -4132,8 +4587,7 @@
             "type": "string",
             "description": "The Tenant's unique identifier for the Customer. This value should match the value used when creating Orders programmatically."
           }
-        },
-        "description": "If applicable, tenants can send in the associated Customer on an Invoice. This externalId will not be validated and if the Customer is not found in Navix we will show in  UI as no customer selected"
+        }
       },
       "invoiceItemDimensionRequest": {
         "type": "object",
@@ -4186,8 +4640,7 @@
             "type": "boolean",
             "description": "Indicates whether the Item is stackable"
           }
-        },
-        "description": "The physical dimensions of the Item"
+        }
       },
       "invoiceItemRequest": {
         "required": [
@@ -4262,7 +4715,12 @@
             "format": "int32"
           },
           "dimensions": {
-            "$ref": "#/components/schemas/invoiceItemDimensionRequest"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/invoiceItemDimensionRequest"
+              }
+            ],
+            "description": "The physical dimensions of the Item"
           }
         }
       },
@@ -4336,18 +4794,18 @@
           "invoiceDate": {
             "minLength": 1,
             "type": "string",
-            "description": "The date on which the Invoice was generated",
+            "description": "The date on which the Invoice was generated. Must be between 1753-01-01 and 9999-12-31.",
             "format": "date-time"
           },
           "shipDate": {
             "minLength": 1,
             "type": "string",
-            "description": "The date on which the freight was shipped",
+            "description": "The date on which the freight was shipped. Must be between 1753-01-01 and 9999-12-31.",
             "format": "date-time"
           },
           "deliveryDate": {
             "type": "string",
-            "description": "The date on which the freight was delivered",
+            "description": "The date on which the freight was delivered. If provided, must be between 1753-01-01 and 9999-12-31.",
             "format": "date-time"
           },
           "stops": {
@@ -4365,7 +4823,12 @@
             "description": "The list of items"
           },
           "vendor": {
-            "$ref": "#/components/schemas/invoiceVendorRequest"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/invoiceVendorRequest"
+              }
+            ],
+            "description": "The Tenant's unique identifier for the Vendor. This value should match the value used when creating Orders programatically."
           },
           "currency": {
             "enum": [
@@ -4760,7 +5223,12 @@
             "description": "The invoice payment terms"
           },
           "service": {
-            "$ref": "#/components/schemas/invoiceServiceRequest"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/invoiceServiceRequest"
+              }
+            ],
+            "description": "The invoice service information"
           },
           "charges": {
             "minItems": 1,
@@ -4771,7 +5239,12 @@
             "description": "The list of charges"
           },
           "customer": {
-            "$ref": "#/components/schemas/invoiceCustomerRequest"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/invoiceCustomerRequest"
+              }
+            ],
+            "description": "If applicable, tenants can send in the associated Customer on an Invoice. This externalId will not be validated and if the Customer is not found in Navix we will show in  UI as no customer selected"
           },
           "referenceNumbers": {
             "type": "array",
@@ -4787,6 +5260,10 @@
             "description": "The external id of the invoice. If not provided will default to the invoice number provided",
             "default": "InvoiceNumber",
             "nullable": true
+          },
+          "isQuickPay": {
+            "type": "boolean",
+            "description": "Indicates whether the invoice is a Quick Pay invoice. Defaults to false when not specified. When true, the invoice due date will be set to match the invoice creation date."
           }
         },
         "example": {
@@ -4892,7 +5369,10 @@
                 "Type": "Vendor",
                 "Description": "Base Rate",
                 "Value": "400"
-              }
+              },
+              "Rate": null,
+              "Quantity": null,
+              "Qualifier": null
             },
             {
               "Charge": 45,
@@ -4901,7 +5381,10 @@
                 "Type": "Vendor",
                 "Description": "Liftgate",
                 "Value": "LFG"
-              }
+              },
+              "Rate": null,
+              "Quantity": null,
+              "Qualifier": null
             }
           ],
           "Customer": {
@@ -4919,7 +5402,8 @@
               "Value": "SHIP-123456-789"
             }
           ],
-          "ExternalId": "INV#123456-789"
+          "ExternalId": "INV#123456-789",
+          "IsQuickPay": false
         }
       },
       "invoiceServiceRequest": {
@@ -4996,7 +5480,8 @@
               "Guaranteed11AM",
               "Guaranteed1PM",
               "Guaranteed2PM",
-              "Guaranteed3PM"
+              "Guaranteed3PM",
+              "Guaranteed1030AM"
             ],
             "type": "string",
             "description": "The transportation service level",
@@ -5009,8 +5494,7 @@
             "description": "The equipment used",
             "nullable": true
           }
-        },
-        "description": "The invoice service information"
+        }
       },
       "invoiceStopRequest": {
         "required": [
@@ -5037,7 +5521,13 @@
             "format": "int32"
           },
           "address": {
-            "$ref": "#/components/schemas/invoiceAddressRequest"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/invoiceAddressRequest"
+              }
+            ],
+            "description": "The physical address of the Stop",
+            "nullable": true
           }
         }
       },
@@ -5080,8 +5570,7 @@
             "type": "string",
             "description": "The MC Number for the Vendor."
           }
-        },
-        "description": "The Tenant's unique identifier for the Vendor. This value should match the value used when creating Orders programatically."
+        }
       },
       "list_string": {
         "type": "array",
@@ -5154,7 +5643,6 @@
             "nullable": true
           }
         },
-        "description": "The physical address of the Stop",
         "nullable": true
       },
       "orderChargeCodeRequest": {
@@ -5176,20 +5664,19 @@
             "type": "string",
             "description": "The Code value"
           }
-        },
-        "description": "The charge code"
+        }
       },
       "orderChargeRequest": {
         "required": [
-          "charge",
           "code"
         ],
         "type": "object",
         "properties": {
           "charge": {
             "type": "number",
-            "description": "The charge amount",
-            "format": "double"
+            "description": "The total charge amount. Provide this for a flat charge, or omit it and provide Rate, Quantity, and Qualifier instead for calculated charges. Values are automatically rounded to 4 decimal places (e.g., 1.23435 becomes 1.2344). Cannot be used together with Rate/Quantity/Qualifier.",
+            "format": "double",
+            "nullable": true
           },
           "itemId": {
             "maxLength": 64,
@@ -5199,7 +5686,41 @@
             "nullable": true
           },
           "code": {
-            "$ref": "#/components/schemas/orderChargeCodeRequest"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/orderChargeCodeRequest"
+              }
+            ],
+            "description": "The charge code"
+          },
+          "rate": {
+            "type": "number",
+            "description": "The rate per unit for calculated charges (e.g., $2.50 per mile, $15.00 per hour). Required when Charge is not provided. Must be used with Quantity and Qualifier. Values are automatically rounded to 4 decimal places (e.g., 1.23435 becomes 1.2344).",
+            "format": "double",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "number",
+            "description": "The quantity of units for calculated charges (e.g., 100 miles, 3.5 hours). Required when Charge is not provided. Must be used with Rate and Qualifier. The total charge is calculated as Rate � Quantity. Values are automatically rounded to 4 decimal places (e.g., 1.23435 becomes 1.2344).",
+            "format": "double",
+            "nullable": true
+          },
+          "qualifier": {
+            "enum": [
+              "PerPound",
+              "PerHundredweight",
+              "PerTon",
+              "PerMile",
+              "PerKilometer",
+              "PerHour",
+              "PerCase",
+              "PerPallet",
+              "PerUnit",
+              "Percent"
+            ],
+            "type": "string",
+            "description": "The unit type for calculated charges (e.g., PerMile, PerHour, PerPallet). Required when Charge is not provided. Must be used with Rate and Quantity. Defines what the Rate and Quantity represent for charge calculation.",
+            "nullable": true
           }
         }
       },
@@ -5228,7 +5749,6 @@
             "nullable": true
           }
         },
-        "description": "The contact information of the Vendor",
         "nullable": true
       },
       "orderCustomerRequest": {
@@ -5635,7 +6155,13 @@
             "nullable": true
           },
           "contact": {
-            "$ref": "#/components/schemas/orderContactRequest"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/orderContactRequest"
+              }
+            ],
+            "description": "The contact information of the Customer",
+            "nullable": true
           },
           "charges": {
             "type": "array",
@@ -5645,8 +6171,47 @@
             "description": "The list of Charge Codes",
             "nullable": true
           }
-        },
-        "description": "The Order Customer"
+        }
+      },
+      "orderInternalContactRequest": {
+        "required": [
+          "role"
+        ],
+        "type": "object",
+        "properties": {
+          "role": {
+            "minLength": 1,
+            "enum": [
+              "Broker",
+              "CarrierSales",
+              "AR",
+              "AP"
+            ],
+            "type": "string",
+            "description": "The role of the contact"
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the contact",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "description": "The phone of the contact",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "description": "The email of the contact",
+            "format": "email",
+            "nullable": true
+          },
+          "department": {
+            "type": "string",
+            "description": "The department of the contact",
+            "nullable": true
+          }
+        }
       },
       "orderItemDimensionRequest": {
         "type": "object",
@@ -5698,7 +6263,6 @@
             "nullable": true
           }
         },
-        "description": "The physical dimensions of the Item",
         "nullable": true
       },
       "orderItemRequest": {
@@ -5779,7 +6343,13 @@
             "nullable": true
           },
           "dimensions": {
-            "$ref": "#/components/schemas/orderItemDimensionRequest"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/orderItemDimensionRequest"
+              }
+            ],
+            "description": "The physical dimensions of the Item",
+            "nullable": true
           }
         }
       },
@@ -5872,7 +6442,12 @@
             "description": "The list of Vendors. At least one is required. If multiple are provided, each externalId must appear only once."
           },
           "customer": {
-            "$ref": "#/components/schemas/orderCustomerRequest"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/orderCustomerRequest"
+              }
+            ],
+            "description": "The Order Customer"
           },
           "referenceNumbers": {
             "type": "array",
@@ -5891,14 +6466,28 @@
             "nullable": true
           },
           "tags": {
-            "$ref": "#/components/schemas/orderTagsRequest"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/orderTagsRequest"
+              }
+            ],
+            "description": "The Order Tags",
+            "nullable": true
+          },
+          "internalContacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/orderInternalContactRequest"
+            },
+            "description": "An optional list of internal contacts",
+            "nullable": true
           }
         },
         "example": {
           "OrderNumber": "123456-789",
           "ExternalId": "123456-789",
-          "ShipDate": "2025-09-08T15:09:43.3248421Z",
-          "DeliveryDate": "2025-09-09T15:09:43.3248747Z",
+          "ShipDate": "2026-05-20T13:49:41.6996257Z",
+          "DeliveryDate": "2026-05-21T13:49:41.6996426Z",
           "Stops": [
             {
               "Type": "Origin",
@@ -6041,7 +6630,10 @@
                   "Code": {
                     "Description": "Base Rate",
                     "Value": "PWT"
-                  }
+                  },
+                  "Rate": null,
+                  "Quantity": null,
+                  "Qualifier": null
                 }
               ]
             },
@@ -6093,7 +6685,10 @@
                   "Code": {
                     "Description": "Base Rate",
                     "Value": "BLC"
-                  }
+                  },
+                  "Rate": null,
+                  "Quantity": null,
+                  "Qualifier": null
                 }
               ]
             }
@@ -6116,7 +6711,10 @@
                 "Code": {
                   "Description": "Base Rate",
                   "Value": "Base"
-                }
+                },
+                "Rate": null,
+                "Quantity": null,
+                "Qualifier": null
               }
             ]
           },
@@ -6130,7 +6728,7 @@
           "Metadata": {
             "AnyValue": {
               "ForInstanceATrackingNumber": "123-789",
-              "OrAnything": "2025-09-09"
+              "OrAnything": "2026-05-21"
             },
             "SomeOtherValue": {
               "sample1": "value1"
@@ -6138,7 +6736,16 @@
           },
           "Tags": {
             "Division": "Eastern"
-          }
+          },
+          "InternalContacts": [
+            {
+              "Role": "Broker",
+              "Name": "Jane Doe",
+              "Phone": "555-123-4567",
+              "Email": "jane.doe@example.navix.io",
+              "Department": "Operations"
+            }
+          ]
         }
       },
       "orderServiceRequest": {
@@ -6215,7 +6822,8 @@
               "Guaranteed11AM",
               "Guaranteed1PM",
               "Guaranteed2PM",
-              "Guaranteed3PM"
+              "Guaranteed3PM",
+              "Guaranteed1030AM"
             ],
             "type": "string",
             "description": "The transportation service level",
@@ -6335,7 +6943,6 @@
             "nullable": true
           }
         },
-        "description": "The Service information",
         "nullable": true
       },
       "orderStopRequest": {
@@ -6370,7 +6977,13 @@
             "nullable": true
           },
           "address": {
-            "$ref": "#/components/schemas/orderAddressRequest"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/orderAddressRequest"
+              }
+            ],
+            "description": "The physical address of the Stop",
+            "nullable": true
           }
         }
       },
@@ -6384,7 +6997,6 @@
             "description": "The division tag for the order."
           }
         },
-        "description": "The Order Tags",
         "nullable": true
       },
       "orderVendorRequest": {
@@ -6833,19 +7445,49 @@
             "nullable": true
           },
           "billToAddress": {
-            "$ref": "#/components/schemas/orderAddressRequest"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/orderAddressRequest"
+              }
+            ],
+            "description": "The Bill To Address of the Vendor",
+            "nullable": true
           },
           "remitToAddress": {
-            "$ref": "#/components/schemas/orderAddressRequest"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/orderAddressRequest"
+              }
+            ],
+            "description": "The Remit To Address of the Vendor",
+            "nullable": true
           },
           "address": {
-            "$ref": "#/components/schemas/orderAddressRequest"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/orderAddressRequest"
+              }
+            ],
+            "description": "The physical address of the Vendor",
+            "nullable": true
           },
           "contact": {
-            "$ref": "#/components/schemas/orderContactRequest"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/orderContactRequest"
+              }
+            ],
+            "description": "The contact information of the Vendor",
+            "nullable": true
           },
           "service": {
-            "$ref": "#/components/schemas/orderServiceRequest"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/orderServiceRequest"
+              }
+            ],
+            "description": "The Service information",
+            "nullable": true
           },
           "charges": {
             "minItems": 1,
@@ -6854,6 +7496,65 @@
               "$ref": "#/components/schemas/orderChargeRequest"
             },
             "description": "The list of Charge Codes"
+          }
+        }
+      },
+      "paymentRequest": {
+        "required": [
+          "amountPaid",
+          "paymentDate",
+          "paymentReference"
+        ],
+        "type": "object",
+        "properties": {
+          "amountPaid": {
+            "type": "number",
+            "description": "The amount paid. Can be negative for credits or adjustments.",
+            "format": "double"
+          },
+          "paymentDate": {
+            "minLength": 1,
+            "type": "string",
+            "description": "The date on which the payment was made.",
+            "format": "date-time"
+          },
+          "paymentReference": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string",
+            "description": "A unique reference for this payment (e.g., check number, ACH reference). Required for duplicate prevention. Max 100 characters."
+          }
+        }
+      },
+      "paymentResponse": {
+        "type": "object",
+        "properties": {
+          "invoiceUuid": {
+            "type": "string",
+            "description": "The UUID of the invoice to which the payment was applied."
+          },
+          "accepted": {
+            "type": "boolean",
+            "description": "Indicates whether the payment request was accepted for processing."
+          }
+        }
+      },
+      "supportingDocumentRequest": {
+        "required": [
+          "fileBase64String",
+          "fileName"
+        ],
+        "type": "object",
+        "properties": {
+          "fileBase64String": {
+            "minLength": 1,
+            "type": "string",
+            "description": "the Base64 string of the document"
+          },
+          "fileName": {
+            "minLength": 1,
+            "type": "string",
+            "description": "The complete filename including extension ie; MyDocument.pdf"
           }
         }
       },
@@ -6901,24 +7602,29 @@
           "type": {
             "enum": [
               "Unset",
+              "Unspecified",
               "Invoice",
               "DeliveryReceipt",
               "ProofOfDelivery",
               "BillOfLading",
               "NoticeOfAssignment",
               "RateConfirmation",
+              "WeightAndInspectionCert",
               "WeightAndInspectionCertificate",
               "LetterOfAuthority",
               "LumperReceipt",
               "PackingList",
               "GeneratedInvoice",
               "Email",
+              "InboundEmail",
               "CommercialInvoice",
               "CertificateOfOrigin",
               "CustomerRateConfirmation",
               "ElectronicInterchangeReceipt",
               "GatePass",
+              "GateOutInTicket",
               "InsuranceCertificate",
+              "Reserved19",
               "OtherReceipt",
               "W9",
               "DeliveryOrder",
@@ -6942,11 +7648,14 @@
               "TargetTripSheet",
               "ExitPass",
               "PortOfArthurBOL",
+              "PortOfArthurBol",
               "ColdChainCustodyForm",
               "IGFFreightDispatch",
+              "IgfFreightDispatch",
               "EquipmentSubmissionForm",
               "Release",
               "ACIManifest",
+              "AciManifest",
               "TrailerPicture",
               "MaterialSafetyDataSheet",
               "ShipTicket",
@@ -6957,12 +7666,14 @@
               "HistoricalAuditDocuments",
               "DetentionReceipt",
               "Unknown",
+              "Reserved58",
               "Manifest",
               "CustomerRateApproval",
               "LoadCoverSheet",
               "SafetyChecklist",
               "WalmartDeliveryConfirmationReport",
-              "StatementInvoice"
+              "StatementInvoice",
+              "TripSheet"
             ],
             "type": "string",
             "default": "Unset"
@@ -7189,193 +7900,6 @@
           }
         }
       },
-      "documentRequest": {
-        "required": [
-          "files"
-        ],
-        "type": "object",
-        "properties": {
-          "externalId": {
-            "type": "string",
-            "description": "The external system's unique identifier used to correlate this document request"
-          },
-          "externalOrderId": {
-            "type": "string",
-            "description": "The unique identifier the tenant has assigned for the Invoice, if any"
-          },
-          "externalInvoiceId": {
-            "type": "string"
-          },
-          "files": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/supportingDocumentRequest"
-            },
-            "description": "A list of documents in Base64 format"
-          }
-        }
-      },
-      "documentResponse": {
-        "type": "object",
-        "properties": {
-          "uuid": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "orderExternalId": {
-            "type": "string"
-          },
-          "type": {
-            "enum": [
-              "Unset",
-              "Invoice",
-              "DeliveryReceipt",
-              "ProofOfDelivery",
-              "BillOfLading",
-              "NoticeOfAssignment",
-              "RateConfirmation",
-              "WeightAndInspectionCertificate",
-              "LetterOfAuthority",
-              "LumperReceipt",
-              "PackingList",
-              "GeneratedInvoice",
-              "Email",
-              "CommercialInvoice",
-              "CertificateOfOrigin",
-              "CustomerRateConfirmation",
-              "ElectronicInterchangeReceipt",
-              "GatePass",
-              "InsuranceCertificate",
-              "OtherReceipt",
-              "W9",
-              "DeliveryOrder",
-              "WeightScaleTicket",
-              "TrailerInterchangeReceipt",
-              "PurchaseOrder",
-              "EscortTicket",
-              "PermitReceipt",
-              "ServiceOrder",
-              "CertificateOfDestruction",
-              "DonationReceipt",
-              "SmartAndFinalStamp",
-              "InboundTripReport",
-              "WeighmasterCertificate",
-              "CargoActivitySheet",
-              "WeberBOL",
-              "TimeCard",
-              "TransferSheet",
-              "TripManifest",
-              "TrailerControlRecord",
-              "TargetTripSheet",
-              "ExitPass",
-              "PortOfArthurBOL",
-              "ColdChainCustodyForm",
-              "IGFFreightDispatch",
-              "EquipmentSubmissionForm",
-              "Release",
-              "ACIManifest",
-              "TrailerPicture",
-              "MaterialSafetyDataSheet",
-              "ShipTicket",
-              "DeliveryTicket",
-              "InvoiceCorrected",
-              "EIRTicket",
-              "PalletReceipt",
-              "HistoricalAuditDocuments",
-              "DetentionReceipt",
-              "Unknown",
-              "Manifest",
-              "CustomerRateApproval",
-              "LoadCoverSheet",
-              "SafetyChecklist",
-              "WalmartDeliveryConfirmationReport",
-              "StatementInvoice"
-            ],
-            "type": "string",
-            "default": "Unset"
-          },
-          "status": {
-            "enum": [
-              "Draft",
-              "Ready",
-              "Approved"
-            ],
-            "type": "string",
-            "default": "Draft"
-          },
-          "hasSignature": {
-            "type": "boolean"
-          },
-          "approvedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "approvedBy": {
-            "type": "string"
-          },
-          "filename": {
-            "type": "string"
-          }
-        },
-        "example": {
-          "Uuid": "071441e0-e3d5-48b7-ae2a-f48a630b687e",
-          "OrderExternalId": "ORD_123",
-          "Type": "BillOfLading",
-          "Status": "Approved",
-          "HasSignature": true,
-          "ApprovedAt": "2025-09-09T15:09:44.503622Z",
-          "ApprovedBy": "john.smith@freight.com",
-          "Filename": "BOL.pdf"
-        }
-      },
-      "documentsApprovedRequest": {
-        "required": [
-          "startTime"
-        ],
-        "type": "object",
-        "properties": {
-          "startTime": {
-            "minLength": 1,
-            "type": "string",
-            "format": "date-time"
-          },
-          "endTime": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "pageSize": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "pageNumber": {
-            "type": "integer",
-            "format": "int32"
-          }
-        }
-      },
-      "documentsApprovedResponse": {
-        "type": "object",
-        "properties": {
-          "documentUuid": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "orderExternalId": {
-            "type": "string"
-          }
-        }
-      },
-      "documentUuidResponse": {
-        "type": "object",
-        "properties": {
-          "uuid": {
-            "type": "string",
-            "format": "uuid"
-          }
-        }
-      },
       "orderApprovedRequest": {
         "required": [
           "startTime"
@@ -7409,71 +7933,13 @@
             "type": "string"
           }
         }
-      },
-      "supportingDocumentRequest": {
-        "required": [
-          "fileBase64String",
-          "fileName"
-        ],
-        "type": "object",
-        "properties": {
-          "fileBase64String": {
-            "minLength": 1,
-            "type": "string",
-            "description": "the Base64 string of the document"
-          },
-          "fileName": {
-            "minLength": 1,
-            "type": "string",
-            "description": "The complete filename including extension ie; MyDocument.pdf"
-          }
-        }
-      },
-      "textLocatePayload": {
-        "type": "object",
-        "properties": {
-          "loadId": {
-            "type": "string",
-            "description": "The Load"
-          },
-          "textlocateId": {
-            "type": "string",
-            "description": "The TextLocate Identifier"
-          },
-          "images": {
-            "minItems": 1,
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "The list of image URLs"
-          }
-        }
-      },
-      "textLocateWebhookRequest": {
-        "type": "object",
-        "properties": {
-          "payload": {
-            "$ref": "#/components/schemas/textLocatePayload"
-          }
-        }
       }
     },
     "securitySchemes": {
-      "Bearer": {
+      "x-api-key": {
         "type": "apiKey",
-        "description": "Enter the Bearer Authorization string as following: `Bearer Generated-JWT-Token`",
-        "name": "Authorization",
-        "in": "header"
-      },
-      "X-Api-Key": {
-        "type": "apiKey",
-        "name": "X-Api-Key",
-        "in": "header"
-      },
-      "apiKey": {
-        "type": "apiKey",
-        "name": "apiKey",
+        "description": "Provide your API key in the x-api-key header.",
+        "name": "x-api-key",
         "in": "header"
       }
     }
@@ -7492,17 +7958,23 @@
       "tags": [
         "API v2_Invoices",
         "API v2_Orders",
+        "API v2_Pre-bill",
         "API v2_Disputes",
+        "API v2_Payments",
+        "API v2_Rating Engine",
         "API v2_Webhooks"
       ]
     },
     {
       "name": "Provisional",
       "tags": [
-        "Provisional_Orders",
-        "Provisional_Documents",
-        "Provisional_Rating Engine"
+        "Provisional_Orders"
       ]
+    }
+  ],
+  "security": [
+    {
+      "x-api-key": []
     }
   ]
 }

@@ -35,6 +35,8 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
 #else
         public string CurrencyCode { get; set; }
 #endif
+        /// <summary>The calculated date when payment for this invoice is due.</summary>
+        public DateTimeOffset? DueDate { get; set; }
         /// <summary>Freight charge terms associated with this order. Example values include but are not limited to:* `Collect`* `Third Party`* `Prepaid`</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -68,6 +70,22 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
 #nullable restore
 #else
         public string Number { get; set; }
+#endif
+        /// <summary>Payment records associated with this invoice.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultPaymentV2>? Payments { get; set; }
+#nullable restore
+#else
+        public List<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultPaymentV2> Payments { get; set; }
+#endif
+        /// <summary>Number of days until payment is due.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? PaymentTerms { get; set; }
+#nullable restore
+#else
+        public string PaymentTerms { get; set; }
 #endif
         /// <summary>The date the invoice was received by email. Received date is only captured for invoices originating from our Email ingestion process. In the UI, this will be where Invoice source = Email.</summary>
         public Date? ReceivedDate { get; set; }
@@ -111,6 +129,8 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
 #else
         public string TerminatedReason { get; set; }
 #endif
+        /// <summary>The total amount originally invoiced by the vendor (sum of all ingested vendor charges before any audit adjustments).Null when no vendor charges are present.</summary>
+        public double? TotalVendorInvoicedAmount { get; set; }
         /// <summary>The total amount payable to the vendor (the calculated sum of all adjusted vendor charges.)</summary>
         public double? TotalVendorPaymentAmount { get; set; }
         /// <summary>The vendor property</summary>
@@ -144,17 +164,21 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
                 { "associatedOrderLineItems", n => { AssociatedOrderLineItems = n.GetBoolValue(); } },
                 { "createdDate", n => { CreatedDate = n.GetDateValue(); } },
                 { "currencyCode", n => { CurrencyCode = n.GetStringValue(); } },
+                { "dueDate", n => { DueDate = n.GetDateTimeOffsetValue(); } },
                 { "freightChargeTerms", n => { FreightChargeTerms = n.GetStringValue(); } },
                 { "invoiceDate", n => { InvoiceDate = n.GetDateValue(); } },
                 { "invoiceReferenceNumbers", n => { InvoiceReferenceNumbers = n.GetCollectionOfObjectValues<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultInvoiceReferenceNumberV2>(global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultInvoiceReferenceNumberV2.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "lineItems", n => { LineItems = n.GetCollectionOfObjectValues<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultLineItemDetailV2>(global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultLineItemDetailV2.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "number", n => { Number = n.GetStringValue(); } },
+                { "paymentTerms", n => { PaymentTerms = n.GetStringValue(); } },
+                { "payments", n => { Payments = n.GetCollectionOfObjectValues<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultPaymentV2>(global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultPaymentV2.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "receivedDate", n => { ReceivedDate = n.GetDateValue(); } },
                 { "source", n => { Source = n.GetStringValue(); } },
                 { "stops", n => { Stops = n.GetCollectionOfObjectValues<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultStopV2>(global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultStopV2.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "tags", n => { Tags = n.GetObjectValue<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultDetailsV2_tags>(global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultDetailsV2_tags.CreateFromDiscriminatorValue); } },
                 { "terminatedMessage", n => { TerminatedMessage = n.GetStringValue(); } },
                 { "terminatedReason", n => { TerminatedReason = n.GetStringValue(); } },
+                { "totalVendorInvoicedAmount", n => { TotalVendorInvoicedAmount = n.GetDoubleValue(); } },
                 { "totalVendorPaymentAmount", n => { TotalVendorPaymentAmount = n.GetDoubleValue(); } },
                 { "vendor", n => { Vendor = n.GetObjectValue<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultVendorV2>(global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultVendorV2.CreateFromDiscriminatorValue); } },
             };
@@ -171,17 +195,21 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
             writer.WriteBoolValue("associatedOrderLineItems", AssociatedOrderLineItems);
             writer.WriteDateValue("createdDate", CreatedDate);
             writer.WriteStringValue("currencyCode", CurrencyCode);
+            writer.WriteDateTimeOffsetValue("dueDate", DueDate);
             writer.WriteStringValue("freightChargeTerms", FreightChargeTerms);
             writer.WriteDateValue("invoiceDate", InvoiceDate);
             writer.WriteCollectionOfObjectValues<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultInvoiceReferenceNumberV2>("invoiceReferenceNumbers", InvoiceReferenceNumbers);
             writer.WriteCollectionOfObjectValues<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultLineItemDetailV2>("lineItems", LineItems);
             writer.WriteStringValue("number", Number);
+            writer.WriteCollectionOfObjectValues<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultPaymentV2>("payments", Payments);
+            writer.WriteStringValue("paymentTerms", PaymentTerms);
             writer.WriteDateValue("receivedDate", ReceivedDate);
             writer.WriteStringValue("source", Source);
             writer.WriteCollectionOfObjectValues<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultStopV2>("stops", Stops);
             writer.WriteObjectValue<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultDetailsV2_tags>("tags", Tags);
             writer.WriteStringValue("terminatedMessage", TerminatedMessage);
             writer.WriteStringValue("terminatedReason", TerminatedReason);
+            writer.WriteDoubleValue("totalVendorInvoicedAmount", TotalVendorInvoicedAmount);
             writer.WriteDoubleValue("totalVendorPaymentAmount", TotalVendorPaymentAmount);
             writer.WriteObjectValue<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultVendorV2>("vendor", Vendor);
         }

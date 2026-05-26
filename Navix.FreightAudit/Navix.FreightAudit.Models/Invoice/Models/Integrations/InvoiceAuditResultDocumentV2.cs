@@ -36,6 +36,8 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
 #else
         public string Name { get; set; }
 #endif
+        /// <summary>The stop sequence this document is assigned to.References a Destination stop on the Order.Null if unassigned.</summary>
+        public int? OrderStopSequence { get; set; }
         /// <summary>If the document has been redacted, the UUID of the redacted version of the document.</summary>
         public Guid? RedactedDocumentUuid { get; set; }
         /// <summary>The standardizedType property</summary>
@@ -81,6 +83,7 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
                 { "modifiedBy", n => { ModifiedBy = n.GetStringValue(); } },
                 { "modifiedDate", n => { ModifiedDate = n.GetDateValue(); } },
                 { "name", n => { Name = n.GetStringValue(); } },
+                { "orderStopSequence", n => { OrderStopSequence = n.GetIntValue(); } },
                 { "redactedDocumentUuid", n => { RedactedDocumentUuid = n.GetGuidValue(); } },
                 { "standardizedType", n => { StandardizedType = n.GetEnumValue<global::Navix.FreightAudit.Models.Invoice.Application.Models.Enums.VendorInvoiceDocumentTypesEnum>(); } },
                 { "submittedName", n => { SubmittedName = n.GetStringValue(); } },
@@ -100,6 +103,7 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
             writer.WriteStringValue("modifiedBy", ModifiedBy);
             writer.WriteDateValue("modifiedDate", ModifiedDate);
             writer.WriteStringValue("name", Name);
+            writer.WriteIntValue("orderStopSequence", OrderStopSequence);
             writer.WriteGuidValue("redactedDocumentUuid", RedactedDocumentUuid);
             writer.WriteEnumValue<global::Navix.FreightAudit.Models.Invoice.Application.Models.Enums.VendorInvoiceDocumentTypesEnum>("standardizedType", StandardizedType);
             writer.WriteStringValue("submittedName", SubmittedName);

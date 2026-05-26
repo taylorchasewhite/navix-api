@@ -7,11 +7,10 @@ using System.IO;
 using System;
 namespace Navix.FreightAudit.Models
 {
-    /// <summary>
-    /// The Tenant&apos;s unique identifier for the Vendor. This value should match the value used when creating Orders programatically.
-    /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
+    #pragma warning disable CS1591
     public partial class InvoiceVendorRequest : IAdditionalDataHolder, IParsable
+    #pragma warning restore CS1591
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }

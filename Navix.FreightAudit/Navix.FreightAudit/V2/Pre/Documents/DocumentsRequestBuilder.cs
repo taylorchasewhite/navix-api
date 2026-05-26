@@ -4,7 +4,6 @@ using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions.Serialization;
 using Microsoft.Kiota.Abstractions;
 using Navix.FreightAudit.Models;
-using Navix.FreightAudit.V2.Pre.Documents.Textlocate;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -18,11 +17,6 @@ namespace Navix.FreightAudit.V2.Pre.Documents
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class DocumentsRequestBuilder : BaseRequestBuilder
     {
-        /// <summary>The textlocate property</summary>
-        public global::Navix.FreightAudit.V2.Pre.Documents.Textlocate.TextlocateRequestBuilder Textlocate
-        {
-            get => new global::Navix.FreightAudit.V2.Pre.Documents.Textlocate.TextlocateRequestBuilder(PathParameters, RequestAdapter);
-        }
         /// <summary>
         /// Instantiates a new <see cref="global::Navix.FreightAudit.V2.Pre.Documents.DocumentsRequestBuilder"/> and sets the default values.
         /// </summary>

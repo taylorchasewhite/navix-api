@@ -2,6 +2,7 @@
 #pragma warning disable CS0618
 using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions.Serialization;
+using Navix.FreightAudit.Models.DatabaseMigrations.Domain.Enums;
 using System.Collections.Generic;
 using System.IO;
 using System;
@@ -58,6 +59,12 @@ namespace Navix.FreightAudit.Models.Order.Models.Integrations
 #else
         public string MetaData { get; set; }
 #endif
+        /// <summary>The qualifier property</summary>
+        public global::Navix.FreightAudit.Models.DatabaseMigrations.Domain.Enums.Qualifier? Qualifier { get; set; }
+        /// <summary>Quantity for qualified charges. Must be specified with Rate and Qualifier or all must be null.</summary>
+        public double? Quantity { get; set; }
+        /// <summary>Rate per unit for qualified charges. Must be specified with Quantity and Qualifier or all must be null.</summary>
+        public double? Rate { get; set; }
         /// <summary>The uuid property</summary>
         public Guid? Uuid { get; set; }
         /// <summary>The vendorId property</summary>
@@ -88,6 +95,9 @@ namespace Navix.FreightAudit.Models.Order.Models.Integrations
                 { "currencyId", n => { CurrencyId = n.GetIntValue(); } },
                 { "description", n => { Description = n.GetStringValue(); } },
                 { "metaData", n => { MetaData = n.GetStringValue(); } },
+                { "qualifier", n => { Qualifier = n.GetEnumValue<global::Navix.FreightAudit.Models.DatabaseMigrations.Domain.Enums.Qualifier>(); } },
+                { "quantity", n => { Quantity = n.GetDoubleValue(); } },
+                { "rate", n => { Rate = n.GetDoubleValue(); } },
                 { "uuid", n => { Uuid = n.GetGuidValue(); } },
                 { "vendorId", n => { VendorId = n.GetIntValue(); } },
             };
@@ -107,6 +117,9 @@ namespace Navix.FreightAudit.Models.Order.Models.Integrations
             writer.WriteIntValue("currencyId", CurrencyId);
             writer.WriteStringValue("description", Description);
             writer.WriteStringValue("metaData", MetaData);
+            writer.WriteEnumValue<global::Navix.FreightAudit.Models.DatabaseMigrations.Domain.Enums.Qualifier>("qualifier", Qualifier);
+            writer.WriteDoubleValue("quantity", Quantity);
+            writer.WriteDoubleValue("rate", Rate);
             writer.WriteGuidValue("uuid", Uuid);
             writer.WriteIntValue("vendorId", VendorId);
         }

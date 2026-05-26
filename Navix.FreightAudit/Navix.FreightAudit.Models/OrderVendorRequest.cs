@@ -14,7 +14,7 @@ namespace Navix.FreightAudit.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
-        /// <summary>The physical address of the Stop</summary>
+        /// <summary>The physical address of the Vendor</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public global::Navix.FreightAudit.Models.OrderAddressRequest? Address { get; set; }
@@ -22,7 +22,7 @@ namespace Navix.FreightAudit.Models
 #else
         public global::Navix.FreightAudit.Models.OrderAddressRequest Address { get; set; }
 #endif
-        /// <summary>The physical address of the Stop</summary>
+        /// <summary>The Bill To Address of the Vendor</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public global::Navix.FreightAudit.Models.OrderAddressRequest? BillToAddress { get; set; }
@@ -84,7 +84,7 @@ namespace Navix.FreightAudit.Models
 #endif
         /// <summary>The payment terms for the Vendor</summary>
         public global::Navix.FreightAudit.Models.OrderVendorRequest_paymentTerms? PaymentTerms { get; set; }
-        /// <summary>The physical address of the Stop</summary>
+        /// <summary>The Remit To Address of the Vendor</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public global::Navix.FreightAudit.Models.OrderAddressRequest? RemitToAddress { get; set; }

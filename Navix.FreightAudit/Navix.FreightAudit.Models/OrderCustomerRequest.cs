@@ -7,11 +7,10 @@ using System.IO;
 using System;
 namespace Navix.FreightAudit.Models
 {
-    /// <summary>
-    /// The Order Customer
-    /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
+    #pragma warning disable CS1591
     public partial class OrderCustomerRequest : IAdditionalDataHolder, IParsable
+    #pragma warning restore CS1591
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
@@ -25,7 +24,7 @@ namespace Navix.FreightAudit.Models
 #else
         public List<global::Navix.FreightAudit.Models.OrderChargeRequest> Charges { get; set; }
 #endif
-        /// <summary>The contact information of the Vendor</summary>
+        /// <summary>The contact information of the Customer</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public global::Navix.FreightAudit.Models.OrderContactRequest? Contact { get; set; }

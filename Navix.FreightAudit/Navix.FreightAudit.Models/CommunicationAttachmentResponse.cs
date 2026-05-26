@@ -14,6 +14,14 @@ namespace Navix.FreightAudit.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
+        /// <summary>The original file name of the attachment</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? FileName { get; set; }
+#nullable restore
+#else
+        public string FileName { get; set; }
+#endif
         /// <summary>A communication attachment identifier for downloading the file</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -47,6 +55,7 @@ namespace Navix.FreightAudit.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
+                { "fileName", n => { FileName = n.GetStringValue(); } },
                 { "identifier", n => { Identifier = n.GetStringValue(); } },
             };
         }
@@ -57,6 +66,7 @@ namespace Navix.FreightAudit.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             _ = writer ?? throw new ArgumentNullException(nameof(writer));
+            writer.WriteStringValue("fileName", FileName);
             writer.WriteStringValue("identifier", Identifier);
             writer.WriteAdditionalData(AdditionalData);
         }
