@@ -30,6 +30,18 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
 #else
         public string Description { get; set; }
 #endif
+        /// <summary>Rate qualifier for Charge calculation (e.g., PerPound, PerMile). Must be specified with Rate and Quantity or all must be null.When all three are provided, Charge is calculated as Rate × Quantity.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Qualifier { get; set; }
+#nullable restore
+#else
+        public string Qualifier { get; set; }
+#endif
+        /// <summary>Quantity for Charge calculation. Must be specified with Rate and Qualifier or all must be null.When all three are provided, Charge is calculated as Rate × Quantity.</summary>
+        public double? Quantity { get; set; }
+        /// <summary>Rate per unit for Charge calculation. Must be specified with Quantity and Qualifier or all must be null.When all three are provided, Charge is calculated as Rate × Quantity.</summary>
+        public double? Rate { get; set; }
         /// <summary>The reason that accompanies the finalized charge amount. This may be empty if there is no variance.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -69,6 +81,9 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
                 { "charge", n => { Charge = n.GetDoubleValue(); } },
                 { "code", n => { Code = n.GetStringValue(); } },
                 { "description", n => { Description = n.GetStringValue(); } },
+                { "qualifier", n => { Qualifier = n.GetStringValue(); } },
+                { "quantity", n => { Quantity = n.GetDoubleValue(); } },
+                { "rate", n => { Rate = n.GetDoubleValue(); } },
                 { "reason", n => { Reason = n.GetStringValue(); } },
                 { "type", n => { Type = n.GetStringValue(); } },
                 { "typeUuid", n => { TypeUuid = n.GetGuidValue(); } },
@@ -84,6 +99,9 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
             writer.WriteDoubleValue("charge", Charge);
             writer.WriteStringValue("code", Code);
             writer.WriteStringValue("description", Description);
+            writer.WriteStringValue("qualifier", Qualifier);
+            writer.WriteDoubleValue("quantity", Quantity);
+            writer.WriteDoubleValue("rate", Rate);
             writer.WriteStringValue("reason", Reason);
             writer.WriteStringValue("type", Type);
             writer.WriteGuidValue("typeUuid", TypeUuid);

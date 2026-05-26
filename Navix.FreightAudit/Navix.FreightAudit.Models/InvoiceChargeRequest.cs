@@ -14,7 +14,7 @@ namespace Navix.FreightAudit.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
-        /// <summary>The charge amount</summary>
+        /// <summary>The total charge amount. Provide this for a flat charge, or omit it and provide Rate, Quantity, and Qualifier instead for calculated charges. Values are automatically rounded to 4 decimal places (e.g., 1.23435 becomes 1.2344). Cannot be used together with Rate/Quantity/Qualifier.</summary>
         public double? Charge { get; set; }
         /// <summary>A list of charge codes.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -32,6 +32,12 @@ namespace Navix.FreightAudit.Models
 #else
         public string ItemId { get; set; }
 #endif
+        /// <summary>The unit type for calculated charges (e.g., PerMile, PerHour, PerPallet). Required when Charge is not provided. Must be used with Rate and Quantity. Defines what the Rate and Quantity represent for charge calculation.</summary>
+        public global::Navix.FreightAudit.Models.InvoiceChargeRequest_qualifier? Qualifier { get; set; }
+        /// <summary>The quantity of units for calculated charges (e.g., 100 miles, 3.5 hours). Required when Charge is not provided. Must be used with Rate and Qualifier. The total charge is calculated as Rate × Quantity. Values are automatically rounded to 4 decimal places (e.g., 1.23435 becomes 1.2344).</summary>
+        public double? Quantity { get; set; }
+        /// <summary>The rate per unit for calculated charges (e.g., $2.50 per mile, $15.00 per hour). Required when Charge is not provided. Must be used with Quantity and Qualifier. Values are automatically rounded to 4 decimal places (e.g., 1.23435 becomes 1.2344).</summary>
+        public double? Rate { get; set; }
         /// <summary>
         /// Instantiates a new <see cref="global::Navix.FreightAudit.Models.InvoiceChargeRequest"/> and sets the default values.
         /// </summary>
@@ -60,6 +66,9 @@ namespace Navix.FreightAudit.Models
                 { "charge", n => { Charge = n.GetDoubleValue(); } },
                 { "code", n => { Code = n.GetObjectValue<global::Navix.FreightAudit.Models.InvoiceChargeCodeRequest>(global::Navix.FreightAudit.Models.InvoiceChargeCodeRequest.CreateFromDiscriminatorValue); } },
                 { "itemId", n => { ItemId = n.GetStringValue(); } },
+                { "qualifier", n => { Qualifier = n.GetEnumValue<global::Navix.FreightAudit.Models.InvoiceChargeRequest_qualifier>(); } },
+                { "quantity", n => { Quantity = n.GetDoubleValue(); } },
+                { "rate", n => { Rate = n.GetDoubleValue(); } },
             };
         }
         /// <summary>
@@ -72,6 +81,9 @@ namespace Navix.FreightAudit.Models
             writer.WriteDoubleValue("charge", Charge);
             writer.WriteObjectValue<global::Navix.FreightAudit.Models.InvoiceChargeCodeRequest>("code", Code);
             writer.WriteStringValue("itemId", ItemId);
+            writer.WriteEnumValue<global::Navix.FreightAudit.Models.InvoiceChargeRequest_qualifier>("qualifier", Qualifier);
+            writer.WriteDoubleValue("quantity", Quantity);
+            writer.WriteDoubleValue("rate", Rate);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

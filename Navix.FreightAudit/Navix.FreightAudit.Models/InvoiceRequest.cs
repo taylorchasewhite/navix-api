@@ -34,7 +34,7 @@ namespace Navix.FreightAudit.Models
 #else
         public global::Navix.FreightAudit.Models.InvoiceCustomerRequest Customer { get; set; }
 #endif
-        /// <summary>The date on which the freight was delivered</summary>
+        /// <summary>The date on which the freight was delivered. If provided, must be between 1753-01-01 and 9999-12-31.</summary>
         public DateTimeOffset? DeliveryDate { get; set; }
         /// <summary>The external id of the invoice. If not provided will default to the invoice number provided</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -44,7 +44,7 @@ namespace Navix.FreightAudit.Models
 #else
         public string ExternalId { get; set; }
 #endif
-        /// <summary>The date on which the Invoice was generated</summary>
+        /// <summary>The date on which the Invoice was generated. Must be between 1753-01-01 and 9999-12-31.</summary>
         public DateTimeOffset? InvoiceDate { get; set; }
         /// <summary>The unique identifier for the Invoice</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -54,6 +54,8 @@ namespace Navix.FreightAudit.Models
 #else
         public string InvoiceNumber { get; set; }
 #endif
+        /// <summary>Indicates whether the invoice is a Quick Pay invoice. Defaults to false when not specified. When true, the invoice due date will be set to match the invoice creation date.</summary>
+        public bool? IsQuickPay { get; set; }
         /// <summary>The list of items</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -80,7 +82,7 @@ namespace Navix.FreightAudit.Models
 #else
         public global::Navix.FreightAudit.Models.InvoiceServiceRequest Service { get; set; }
 #endif
-        /// <summary>The date on which the freight was shipped</summary>
+        /// <summary>The date on which the freight was shipped. Must be between 1753-01-01 and 9999-12-31.</summary>
         public DateTimeOffset? ShipDate { get; set; }
         /// <summary>The list of stops</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -136,6 +138,7 @@ namespace Navix.FreightAudit.Models
                 { "externalId", n => { ExternalId = n.GetStringValue(); } },
                 { "invoiceDate", n => { InvoiceDate = n.GetDateTimeOffsetValue(); } },
                 { "invoiceNumber", n => { InvoiceNumber = n.GetStringValue(); } },
+                { "isQuickPay", n => { IsQuickPay = n.GetBoolValue(); } },
                 { "items", n => { Items = n.GetCollectionOfObjectValues<global::Navix.FreightAudit.Models.InvoiceItemRequest>(global::Navix.FreightAudit.Models.InvoiceItemRequest.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "paymentTerms", n => { PaymentTerms = n.GetEnumValue<global::Navix.FreightAudit.Models.InvoiceRequest_paymentTerms>(); } },
                 { "referenceNumbers", n => { ReferenceNumbers = n.GetCollectionOfObjectValues<global::Navix.FreightAudit.Models.InvoiceReferenceNumberRequest>(global::Navix.FreightAudit.Models.InvoiceReferenceNumberRequest.CreateFromDiscriminatorValue)?.AsList(); } },
@@ -161,6 +164,7 @@ namespace Navix.FreightAudit.Models
             writer.WriteStringValue("externalId", ExternalId);
             writer.WriteDateTimeOffsetValue("invoiceDate", InvoiceDate);
             writer.WriteStringValue("invoiceNumber", InvoiceNumber);
+            writer.WriteBoolValue("isQuickPay", IsQuickPay);
             writer.WriteCollectionOfObjectValues<global::Navix.FreightAudit.Models.InvoiceItemRequest>("items", Items);
             writer.WriteEnumValue<global::Navix.FreightAudit.Models.InvoiceRequest_paymentTerms>("paymentTerms", PaymentTerms);
             writer.WriteCollectionOfObjectValues<global::Navix.FreightAudit.Models.InvoiceReferenceNumberRequest>("referenceNumbers", ReferenceNumbers);

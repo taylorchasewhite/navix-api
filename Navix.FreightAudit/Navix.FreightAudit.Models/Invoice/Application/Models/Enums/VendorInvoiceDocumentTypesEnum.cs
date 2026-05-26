@@ -248,5 +248,9 @@ namespace Navix.FreightAudit.Models.Invoice.Application.Models.Enums
         #pragma warning disable CS1591
         StatementInvoice,
         #pragma warning restore CS1591
+        [EnumMember(Value = "TripSheet")]
+        #pragma warning disable CS1591
+        TripSheet,
+        #pragma warning restore CS1591
     }
 }

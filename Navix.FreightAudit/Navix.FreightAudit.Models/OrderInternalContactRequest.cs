@@ -9,51 +9,61 @@ namespace Navix.FreightAudit.Models
 {
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     #pragma warning disable CS1591
-    public partial class CommunicationEmailResponse : IAdditionalDataHolder, IParsable
+    public partial class OrderInternalContactRequest : IAdditionalDataHolder, IParsable
     #pragma warning restore CS1591
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
-        /// <summary>A list of Cc email addresses on the email</summary>
+        /// <summary>The department of the contact</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public List<string>? Cc { get; set; }
+        public string? Department { get; set; }
 #nullable restore
 #else
-        public List<string> Cc { get; set; }
+        public string Department { get; set; }
 #endif
-        /// <summary>The subject line of the email</summary>
+        /// <summary>The email of the contact</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public string? Subject { get; set; }
+        public string? Email { get; set; }
 #nullable restore
 #else
-        public string Subject { get; set; }
+        public string Email { get; set; }
 #endif
-        /// <summary>A list of To email addresses on the email</summary>
+        /// <summary>The name of the contact</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public List<string>? To { get; set; }
+        public string? Name { get; set; }
 #nullable restore
 #else
-        public List<string> To { get; set; }
+        public string Name { get; set; }
 #endif
+        /// <summary>The phone of the contact</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Phone { get; set; }
+#nullable restore
+#else
+        public string Phone { get; set; }
+#endif
+        /// <summary>The role of the contact</summary>
+        public global::Navix.FreightAudit.Models.OrderInternalContactRequest_role? Role { get; set; }
         /// <summary>
-        /// Instantiates a new <see cref="global::Navix.FreightAudit.Models.CommunicationEmailResponse"/> and sets the default values.
+        /// Instantiates a new <see cref="global::Navix.FreightAudit.Models.OrderInternalContactRequest"/> and sets the default values.
         /// </summary>
-        public CommunicationEmailResponse()
+        public OrderInternalContactRequest()
         {
             AdditionalData = new Dictionary<string, object>();
         }
         /// <summary>
         /// Creates a new instance of the appropriate class based on discriminator value
         /// </summary>
-        /// <returns>A <see cref="global::Navix.FreightAudit.Models.CommunicationEmailResponse"/></returns>
+        /// <returns>A <see cref="global::Navix.FreightAudit.Models.OrderInternalContactRequest"/></returns>
         /// <param name="parseNode">The parse node to use to read the discriminator value and create the object</param>
-        public static global::Navix.FreightAudit.Models.CommunicationEmailResponse CreateFromDiscriminatorValue(IParseNode parseNode)
+        public static global::Navix.FreightAudit.Models.OrderInternalContactRequest CreateFromDiscriminatorValue(IParseNode parseNode)
         {
             _ = parseNode ?? throw new ArgumentNullException(nameof(parseNode));
-            return new global::Navix.FreightAudit.Models.CommunicationEmailResponse();
+            return new global::Navix.FreightAudit.Models.OrderInternalContactRequest();
         }
         /// <summary>
         /// The deserialization information for the current model
@@ -63,9 +73,11 @@ namespace Navix.FreightAudit.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
-                { "cc", n => { Cc = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
-                { "subject", n => { Subject = n.GetStringValue(); } },
-                { "to", n => { To = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
+                { "department", n => { Department = n.GetStringValue(); } },
+                { "email", n => { Email = n.GetStringValue(); } },
+                { "name", n => { Name = n.GetStringValue(); } },
+                { "phone", n => { Phone = n.GetStringValue(); } },
+                { "role", n => { Role = n.GetEnumValue<global::Navix.FreightAudit.Models.OrderInternalContactRequest_role>(); } },
             };
         }
         /// <summary>
@@ -75,9 +87,11 @@ namespace Navix.FreightAudit.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             _ = writer ?? throw new ArgumentNullException(nameof(writer));
-            writer.WriteCollectionOfPrimitiveValues<string>("cc", Cc);
-            writer.WriteStringValue("subject", Subject);
-            writer.WriteCollectionOfPrimitiveValues<string>("to", To);
+            writer.WriteStringValue("department", Department);
+            writer.WriteStringValue("email", Email);
+            writer.WriteStringValue("name", Name);
+            writer.WriteStringValue("phone", Phone);
+            writer.WriteEnumValue<global::Navix.FreightAudit.Models.OrderInternalContactRequest_role>("role", Role);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

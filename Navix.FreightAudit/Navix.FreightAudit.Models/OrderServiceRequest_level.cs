@@ -151,5 +151,9 @@ namespace Navix.FreightAudit.Models
         #pragma warning disable CS1591
         Guaranteed3PM,
         #pragma warning restore CS1591
+        [EnumMember(Value = "Guaranteed1030AM")]
+        #pragma warning disable CS1591
+        Guaranteed1030AM,
+        #pragma warning restore CS1591
     }
 }

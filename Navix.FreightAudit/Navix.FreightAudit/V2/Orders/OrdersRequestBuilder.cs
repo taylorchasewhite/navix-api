@@ -53,7 +53,7 @@ namespace Navix.FreightAudit.V2.Orders
         {
         }
         /// <summary>
-        /// This creates a new order.The endpoint validates the order, and returns a 400 if there&apos;s any invalid data being passed. A 202 response indicates the message has been durably stored and entered a highly-resilient workflow, and API consumers can assume the order will be successfully ingested.
+        /// This upserts an order.This can be used to create and update an order. The `externalId` is the unique identifier (and defaults to `orderNumber` if not provided or blank). So to update an order, you&apos;d call this endpoint with the same `externalId` you used when creating the order.The endpoint validates the order, and returns a 400 if there&apos;s any invalid data being passed. A 202 response indicates the message has been durably stored and entered a highly-resilient workflow, and API consumers can assume the order will be successfully ingested.
         /// </summary>
         /// <returns>A <see cref="global::Navix.FreightAudit.Models.OrderAcceptedResponse"/></returns>
         /// <param name="body">The request body</param>
@@ -78,7 +78,7 @@ namespace Navix.FreightAudit.V2.Orders
             return await RequestAdapter.SendAsync<global::Navix.FreightAudit.Models.OrderAcceptedResponse>(requestInfo, global::Navix.FreightAudit.Models.OrderAcceptedResponse.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }
         /// <summary>
-        /// This creates a new order.The endpoint validates the order, and returns a 400 if there&apos;s any invalid data being passed. A 202 response indicates the message has been durably stored and entered a highly-resilient workflow, and API consumers can assume the order will be successfully ingested.
+        /// This upserts an order.This can be used to create and update an order. The `externalId` is the unique identifier (and defaults to `orderNumber` if not provided or blank). So to update an order, you&apos;d call this endpoint with the same `externalId` you used when creating the order.The endpoint validates the order, and returns a 400 if there&apos;s any invalid data being passed. A 202 response indicates the message has been durably stored and entered a highly-resilient workflow, and API consumers can assume the order will be successfully ingested.
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="body">The request body</param>

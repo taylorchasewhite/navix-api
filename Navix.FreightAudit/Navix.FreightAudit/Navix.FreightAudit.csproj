@@ -9,7 +9,7 @@
 		<!-- ✅ NuGet Package Metadata -->
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<PackageId>Navix.FreightAudit.Client</PackageId>
-		<Version>0.0.2</Version>
+		<Version>0.0.3</Version>
 		<Authors>Taylor Chase White</Authors>
 		<Company>Navix, Total Quality Logistics</Company>
 		<Product>Navix Freight Audit Api Client</Product>

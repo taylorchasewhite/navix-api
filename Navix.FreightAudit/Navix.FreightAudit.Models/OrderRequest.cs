@@ -32,6 +32,14 @@ namespace Navix.FreightAudit.Models
 #else
         public string ExternalId { get; set; }
 #endif
+        /// <summary>An optional list of internal contacts</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<global::Navix.FreightAudit.Models.OrderInternalContactRequest>? InternalContacts { get; set; }
+#nullable restore
+#else
+        public List<global::Navix.FreightAudit.Models.OrderInternalContactRequest> InternalContacts { get; set; }
+#endif
         /// <summary>The list of Items</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -119,6 +127,7 @@ namespace Navix.FreightAudit.Models
                 { "customer", n => { Customer = n.GetObjectValue<global::Navix.FreightAudit.Models.OrderCustomerRequest>(global::Navix.FreightAudit.Models.OrderCustomerRequest.CreateFromDiscriminatorValue); } },
                 { "deliveryDate", n => { DeliveryDate = n.GetDateTimeOffsetValue(); } },
                 { "externalId", n => { ExternalId = n.GetStringValue(); } },
+                { "internalContacts", n => { InternalContacts = n.GetCollectionOfObjectValues<global::Navix.FreightAudit.Models.OrderInternalContactRequest>(global::Navix.FreightAudit.Models.OrderInternalContactRequest.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "items", n => { Items = n.GetCollectionOfObjectValues<global::Navix.FreightAudit.Models.OrderItemRequest>(global::Navix.FreightAudit.Models.OrderItemRequest.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "metadata", n => { Metadata = n.GetObjectValue<global::Navix.FreightAudit.Models.OrderRequest_metadata>(global::Navix.FreightAudit.Models.OrderRequest_metadata.CreateFromDiscriminatorValue); } },
                 { "orderNumber", n => { OrderNumber = n.GetStringValue(); } },
@@ -139,6 +148,7 @@ namespace Navix.FreightAudit.Models
             writer.WriteObjectValue<global::Navix.FreightAudit.Models.OrderCustomerRequest>("customer", Customer);
             writer.WriteDateTimeOffsetValue("deliveryDate", DeliveryDate);
             writer.WriteStringValue("externalId", ExternalId);
+            writer.WriteCollectionOfObjectValues<global::Navix.FreightAudit.Models.OrderInternalContactRequest>("internalContacts", InternalContacts);
             writer.WriteCollectionOfObjectValues<global::Navix.FreightAudit.Models.OrderItemRequest>("items", Items);
             writer.WriteObjectValue<global::Navix.FreightAudit.Models.OrderRequest_metadata>("metadata", Metadata);
             writer.WriteStringValue("orderNumber", OrderNumber);

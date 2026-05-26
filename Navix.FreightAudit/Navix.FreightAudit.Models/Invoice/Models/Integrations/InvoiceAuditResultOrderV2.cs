@@ -36,6 +36,14 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
 #else
         public List<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultDocumentV2> Documents { get; set; }
 #endif
+        /// <summary>The external id of the order, mastered by the tenant&apos;s system. If the order has no external id, this defaults to the order number.Null when no order is attached to the invoice.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? ExternalId { get; set; }
+#nullable restore
+#else
+        public string ExternalId { get; set; }
+#endif
         /// <summary>Freight Charge Terms associated with this Order. If no order is attached to the invoice this will be null. Example values include but are not limited to:* `Collect`* `Third Party`* `Prepaid`</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -52,6 +60,8 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
 #else
         public global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultOrderV2_metadata Metadata { get; set; }
 #endif
+        /// <summary>Whether the order attached to this invoice has been approved. If no order is attached to the invoice, or the order has not been approved, this will be false.</summary>
+        public bool? OrderApproved { get; set; }
         /// <summary>An identified for the order, issued by the tenant. This is likely the unique identifier for the order in the tenant&apos;s TMS. If no order is attached to the invoice this will be null</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -107,8 +117,10 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
                 { "customerCharges", n => { CustomerCharges = n.GetCollectionOfObjectValues<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultCustomerChargeV2>(global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultCustomerChargeV2.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "customerExternalId", n => { CustomerExternalId = n.GetStringValue(); } },
                 { "documents", n => { Documents = n.GetCollectionOfObjectValues<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultDocumentV2>(global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultDocumentV2.CreateFromDiscriminatorValue)?.AsList(); } },
+                { "externalId", n => { ExternalId = n.GetStringValue(); } },
                 { "freightChargeTerms", n => { FreightChargeTerms = n.GetStringValue(); } },
                 { "metadata", n => { Metadata = n.GetObjectValue<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultOrderV2_metadata>(global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultOrderV2_metadata.CreateFromDiscriminatorValue); } },
+                { "orderApproved", n => { OrderApproved = n.GetBoolValue(); } },
                 { "orderNumber", n => { OrderNumber = n.GetStringValue(); } },
                 { "orderReferenceNumbers", n => { OrderReferenceNumbers = n.GetCollectionOfObjectValues<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultOrderReferenceNumberV2>(global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultOrderReferenceNumberV2.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "uuid", n => { Uuid = n.GetGuidValue(); } },
@@ -126,8 +138,10 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
             writer.WriteCollectionOfObjectValues<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultCustomerChargeV2>("customerCharges", CustomerCharges);
             writer.WriteStringValue("customerExternalId", CustomerExternalId);
             writer.WriteCollectionOfObjectValues<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultDocumentV2>("documents", Documents);
+            writer.WriteStringValue("externalId", ExternalId);
             writer.WriteStringValue("freightChargeTerms", FreightChargeTerms);
             writer.WriteObjectValue<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultOrderV2_metadata>("metadata", Metadata);
+            writer.WriteBoolValue("orderApproved", OrderApproved);
             writer.WriteStringValue("orderNumber", OrderNumber);
             writer.WriteCollectionOfObjectValues<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultOrderReferenceNumberV2>("orderReferenceNumbers", OrderReferenceNumbers);
             writer.WriteGuidValue("uuid", Uuid);

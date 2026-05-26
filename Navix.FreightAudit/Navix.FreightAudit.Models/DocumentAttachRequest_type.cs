@@ -11,6 +11,10 @@ namespace Navix.FreightAudit.Models
         #pragma warning disable CS1591
         Unset,
         #pragma warning restore CS1591
+        [EnumMember(Value = "Unspecified")]
+        #pragma warning disable CS1591
+        Unspecified,
+        #pragma warning restore CS1591
         [EnumMember(Value = "Invoice")]
         #pragma warning disable CS1591
         Invoice,
@@ -34,6 +38,10 @@ namespace Navix.FreightAudit.Models
         [EnumMember(Value = "RateConfirmation")]
         #pragma warning disable CS1591
         RateConfirmation,
+        #pragma warning restore CS1591
+        [EnumMember(Value = "WeightAndInspectionCert")]
+        #pragma warning disable CS1591
+        WeightAndInspectionCert,
         #pragma warning restore CS1591
         [EnumMember(Value = "WeightAndInspectionCertificate")]
         #pragma warning disable CS1591
@@ -59,6 +67,10 @@ namespace Navix.FreightAudit.Models
         #pragma warning disable CS1591
         Email,
         #pragma warning restore CS1591
+        [EnumMember(Value = "InboundEmail")]
+        #pragma warning disable CS1591
+        InboundEmail,
+        #pragma warning restore CS1591
         [EnumMember(Value = "CommercialInvoice")]
         #pragma warning disable CS1591
         CommercialInvoice,
@@ -79,9 +91,17 @@ namespace Navix.FreightAudit.Models
         #pragma warning disable CS1591
         GatePass,
         #pragma warning restore CS1591
+        [EnumMember(Value = "GateOutInTicket")]
+        #pragma warning disable CS1591
+        GateOutInTicket,
+        #pragma warning restore CS1591
         [EnumMember(Value = "InsuranceCertificate")]
         #pragma warning disable CS1591
         InsuranceCertificate,
+        #pragma warning restore CS1591
+        [EnumMember(Value = "Reserved19")]
+        #pragma warning disable CS1591
+        Reserved19,
         #pragma warning restore CS1591
         [EnumMember(Value = "OtherReceipt")]
         #pragma warning disable CS1591
@@ -235,6 +255,10 @@ namespace Navix.FreightAudit.Models
         #pragma warning disable CS1591
         Unknown,
         #pragma warning restore CS1591
+        [EnumMember(Value = "Reserved58")]
+        #pragma warning disable CS1591
+        Reserved58,
+        #pragma warning restore CS1591
         [EnumMember(Value = "Manifest")]
         #pragma warning disable CS1591
         Manifest,
@@ -258,6 +282,10 @@ namespace Navix.FreightAudit.Models
         [EnumMember(Value = "StatementInvoice")]
         #pragma warning disable CS1591
         StatementInvoice,
+        #pragma warning restore CS1591
+        [EnumMember(Value = "TripSheet")]
+        #pragma warning disable CS1591
+        TripSheet,
         #pragma warning restore CS1591
     }
 }
