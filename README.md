@@ -70,7 +70,41 @@ var result = await client.Invoices.GetAuditResultAsync("invoice-uuid-here");
 ```
 Note: Some endpoints may return 202 Accepted and complete asynchronously.
 
-## 📜 License
+## Required setup for consumers
+
+Call `NavixResponseCasing.Register` once at start-up. It is the only setup a
+consumer needs to add, and it fixes the property-name casing mismatch described
+under "Response property casing" below.
+
+```csharp
+using Navix.FreightAudit;
+using Microsoft.Kiota.Abstractions.Serialization;
+
+// Once at start-up, on the registry your adapter uses
+// (HttpClientRequestAdapter uses ParseNodeFactoryRegistry.DefaultInstance by default).
+NavixResponseCasing.Register(ParseNodeFactoryRegistry.DefaultInstance);
+```
+
+## Response property casing
+
+**This is the real runtime issue, confirmed against the live Navix API.** The
+OpenAPI schema declares camelCase property names, but the live API is inconsistent:
+some endpoints return camelCase (for example `orderExternalId` from
+`POST /v2/orders/approved`) while others return **PascalCase** (for example `Uuid`
+from `GET /v2/orders/{id}/invoices`, and `Uuid` / `ETag` / `CreatedAt` from the
+dispute reads). Kiota binds JSON keys case-sensitively, so PascalCase fields
+deserialize to `null` (see
+[microsoft/kiota#7060](https://github.com/microsoft/kiota/issues/7060)).
+
+The generated models are left exactly as Kiota emits them. Instead, the
+`NavixResponseCasing.Register` call shown above installs a parse-node factory that
+lower-cases the first character of every JSON property name before deserializing.
+That maps `Uuid` to `uuid` while leaving `orderExternalId` unchanged, so responses
+bind regardless of which casing an endpoint uses. Normalization is a no-op on
+already-camelCase payloads. **This requires the `Register` call** — without it,
+PascalCase fields are `null`.
+
+## �📜 License
 
 This client library is released under the MIT License, which permits commercial use, modification, distribution, and private use.
 
