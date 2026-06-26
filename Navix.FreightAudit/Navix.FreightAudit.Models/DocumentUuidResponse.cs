@@ -9,51 +9,29 @@ namespace Navix.FreightAudit.Models
 {
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     #pragma warning disable CS1591
-    public partial class TextLocatePayload : IAdditionalDataHolder, IParsable
+    public partial class DocumentUuidResponse : IAdditionalDataHolder, IParsable
     #pragma warning restore CS1591
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
-        /// <summary>The list of image URLs</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public List<string>? Images { get; set; }
-#nullable restore
-#else
-        public List<string> Images { get; set; }
-#endif
-        /// <summary>The Load</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public string? LoadId { get; set; }
-#nullable restore
-#else
-        public string LoadId { get; set; }
-#endif
-        /// <summary>The TextLocate Identifier</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public string? TextlocateId { get; set; }
-#nullable restore
-#else
-        public string TextlocateId { get; set; }
-#endif
+        /// <summary>The uuid property</summary>
+        public Guid? Uuid { get; set; }
         /// <summary>
-        /// Instantiates a new <see cref="global::Navix.FreightAudit.Models.TextLocatePayload"/> and sets the default values.
+        /// Instantiates a new <see cref="global::Navix.FreightAudit.Models.DocumentUuidResponse"/> and sets the default values.
         /// </summary>
-        public TextLocatePayload()
+        public DocumentUuidResponse()
         {
             AdditionalData = new Dictionary<string, object>();
         }
         /// <summary>
         /// Creates a new instance of the appropriate class based on discriminator value
         /// </summary>
-        /// <returns>A <see cref="global::Navix.FreightAudit.Models.TextLocatePayload"/></returns>
+        /// <returns>A <see cref="global::Navix.FreightAudit.Models.DocumentUuidResponse"/></returns>
         /// <param name="parseNode">The parse node to use to read the discriminator value and create the object</param>
-        public static global::Navix.FreightAudit.Models.TextLocatePayload CreateFromDiscriminatorValue(IParseNode parseNode)
+        public static global::Navix.FreightAudit.Models.DocumentUuidResponse CreateFromDiscriminatorValue(IParseNode parseNode)
         {
             _ = parseNode ?? throw new ArgumentNullException(nameof(parseNode));
-            return new global::Navix.FreightAudit.Models.TextLocatePayload();
+            return new global::Navix.FreightAudit.Models.DocumentUuidResponse();
         }
         /// <summary>
         /// The deserialization information for the current model
@@ -63,9 +41,7 @@ namespace Navix.FreightAudit.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
-                { "images", n => { Images = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
-                { "loadId", n => { LoadId = n.GetStringValue(); } },
-                { "textlocateId", n => { TextlocateId = n.GetStringValue(); } },
+                { "uuid", n => { Uuid = n.GetGuidValue(); } },
             };
         }
         /// <summary>
@@ -75,9 +51,7 @@ namespace Navix.FreightAudit.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             _ = writer ?? throw new ArgumentNullException(nameof(writer));
-            writer.WriteCollectionOfPrimitiveValues<string>("images", Images);
-            writer.WriteStringValue("loadId", LoadId);
-            writer.WriteStringValue("textlocateId", TextlocateId);
+            writer.WriteGuidValue("uuid", Uuid);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

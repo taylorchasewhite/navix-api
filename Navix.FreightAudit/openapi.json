@@ -598,7 +598,7 @@
           "200": {
             "description": "List of invoice uuids",
             "content": {
-              "text/json": {
+              "application/json": {
                 "schema": {
                   "type": "array",
                   "items": {
@@ -851,7 +851,7 @@
           "200": {
             "description": "The document.",
             "content": {
-              "text/json": {
+              "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/documentResponse"
                 }
@@ -979,7 +979,7 @@
           "200": {
             "description": "List of document uuids",
             "content": {
-              "text/json": {
+              "application/json": {
                 "schema": {
                   "type": "array",
                   "items": {
@@ -1053,7 +1053,7 @@
           "200": {
             "description": "List of documents",
             "content": {
-              "text/json": {
+              "application/json": {
                 "schema": {
                   "type": "array",
                   "items": {
@@ -1129,7 +1129,7 @@
           "200": {
             "description": "List of documents",
             "content": {
-              "text/json": {
+              "application/json": {
                 "schema": {
                   "type": "array",
                   "items": {
@@ -2073,7 +2073,7 @@
           "200": {
             "description": "List of OrderExternalIds",
             "content": {
-              "text/json": {
+              "application/json": {
                 "schema": {
                   "type": "array",
                   "items": {
