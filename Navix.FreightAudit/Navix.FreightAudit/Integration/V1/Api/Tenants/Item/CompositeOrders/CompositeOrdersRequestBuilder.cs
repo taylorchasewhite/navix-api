@@ -50,7 +50,7 @@ namespace Navix.FreightAudit.Integration.V1.Api.Tenants.Item.CompositeOrders
         public async Task<string> PostAsync(global::Navix.FreightAudit.Models.Order.Models.Integrations.OrderCompositeRequest body, Action<RequestConfiguration<DefaultQueryParameters>> requestConfiguration = default, CancellationToken cancellationToken = default)
         {
 #endif
-            _ = body ?? throw new ArgumentNullException(nameof(body));
+            if(ReferenceEquals(body, null)) throw new ArgumentNullException(nameof(body));
             var requestInfo = ToPostRequestInformation(body, requestConfiguration);
             return await RequestAdapter.SendPrimitiveAsync<string>(requestInfo, default, cancellationToken).ConfigureAwait(false);
         }
@@ -70,7 +70,7 @@ namespace Navix.FreightAudit.Integration.V1.Api.Tenants.Item.CompositeOrders
         public RequestInformation ToPostRequestInformation(global::Navix.FreightAudit.Models.Order.Models.Integrations.OrderCompositeRequest body, Action<RequestConfiguration<DefaultQueryParameters>> requestConfiguration = default)
         {
 #endif
-            _ = body ?? throw new ArgumentNullException(nameof(body));
+            if(ReferenceEquals(body, null)) throw new ArgumentNullException(nameof(body));
             var requestInfo = new RequestInformation(Method.POST, UrlTemplate, PathParameters);
             requestInfo.Configure(requestConfiguration);
             requestInfo.Headers.TryAdd("Accept", "application/json");

@@ -76,7 +76,7 @@ namespace Navix.FreightAudit.V2.Invoices.Item.Documents
         public async Task<global::Navix.FreightAudit.Models.DocumentCreatedResponse> PostAsync(global::Navix.FreightAudit.Models.DocumentAttachRequest body, Action<RequestConfiguration<DefaultQueryParameters>> requestConfiguration = default, CancellationToken cancellationToken = default)
         {
 #endif
-            _ = body ?? throw new ArgumentNullException(nameof(body));
+            if(ReferenceEquals(body, null)) throw new ArgumentNullException(nameof(body));
             var requestInfo = ToPostRequestInformation(body, requestConfiguration);
             var errorMapping = new Dictionary<string, ParsableFactory<IParsable>>
             {
@@ -99,7 +99,7 @@ namespace Navix.FreightAudit.V2.Invoices.Item.Documents
         public RequestInformation ToPostRequestInformation(global::Navix.FreightAudit.Models.DocumentAttachRequest body, Action<RequestConfiguration<DefaultQueryParameters>> requestConfiguration = default)
         {
 #endif
-            _ = body ?? throw new ArgumentNullException(nameof(body));
+            if(ReferenceEquals(body, null)) throw new ArgumentNullException(nameof(body));
             var requestInfo = new RequestInformation(Method.POST, UrlTemplate, PathParameters);
             requestInfo.Configure(requestConfiguration);
             requestInfo.Headers.TryAdd("Accept", "application/json");

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net8.0</TargetFramework>
+		<TargetFramework>net10.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -9,7 +9,7 @@
 		<!-- ✅ NuGet Package Metadata -->
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<PackageId>Navix.FreightAudit.Models</PackageId>
-		<Version>0.0.4</Version>
+		<Version>0.0.5</Version>
 		<Authors>Taylor Chase White</Authors>
 		<Company>Navix</Company>
 		<Product>Navix Freight Audit Models</Product>
@@ -32,12 +32,12 @@
 	
 	<ItemGroup>
 
-				<PackageReference Include="Microsoft.Kiota.Abstractions" Version="1.22.2" />
-				<PackageReference Include="Microsoft.Kiota.Http.HttpClientLibrary" Version="1.22.2" />
-				<PackageReference Include="Microsoft.Kiota.Serialization.Form" Version="1.22.2" />
-				<PackageReference Include="Microsoft.Kiota.Serialization.Json" Version="1.22.2" />
-				<PackageReference Include="Microsoft.Kiota.Serialization.Multipart" Version="1.22.2" />
-				<PackageReference Include="Microsoft.Kiota.Serialization.Text" Version="1.22.2" />
+				<PackageReference Include="Microsoft.Kiota.Abstractions" Version="2.0.0" />
+				<PackageReference Include="Microsoft.Kiota.Http.HttpClientLibrary" Version="2.0.0" />
+				<PackageReference Include="Microsoft.Kiota.Serialization.Form" Version="2.0.0" />
+				<PackageReference Include="Microsoft.Kiota.Serialization.Json" Version="2.0.0" />
+				<PackageReference Include="Microsoft.Kiota.Serialization.Multipart" Version="2.0.0" />
+				<PackageReference Include="Microsoft.Kiota.Serialization.Text" Version="2.0.0" />
 	</ItemGroup>
 
 </Project>

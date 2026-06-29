@@ -58,7 +58,7 @@ public static class NavixResponseCasing
 /// first character of each name) and then parses the payload as JSON via Kiota's
 /// <see cref="JsonParseNodeFactory"/>.
 /// </summary>
-internal sealed class CaseNormalizingJsonParseNodeFactory : IAsyncParseNodeFactory
+internal sealed class CaseNormalizingJsonParseNodeFactory : IParseNodeFactory
 {
     private readonly JsonParseNodeFactory _json = new();
 
@@ -78,17 +78,6 @@ internal sealed class CaseNormalizingJsonParseNodeFactory : IAsyncParseNodeFacto
             .GetRootParseNodeAsync(NavixResponseCasing.JsonContentType, normalized, cancellationToken)
             .ConfigureAwait(false);
     }
-
-#pragma warning disable CS0618 // Synchronous path retained only to satisfy the interface contract.
-    /// <inheritdoc />
-    public IParseNode GetRootParseNode(string contentType, Stream content)
-    {
-        using MemoryStream buffer = new();
-        content.CopyTo(buffer);
-        using MemoryStream normalized = new(NormalizeBytes(buffer.ToArray()));
-        return _json.GetRootParseNode(NavixResponseCasing.JsonContentType, normalized);
-    }
-#pragma warning restore CS0618
 
     private static async Task<MemoryStream> NormalizeAsync(
         Stream content,
