@@ -9,7 +9,7 @@
 		<!-- ✅ NuGet Package Metadata -->
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<PackageId>Navix.FreightAudit.Models</PackageId>
-		<Version>0.0.5</Version>
+		<Version>0.0.6</Version>
 		<Authors>Taylor Chase White</Authors>
 		<Company>Navix</Company>
 		<Product>Navix Freight Audit Models</Product>
