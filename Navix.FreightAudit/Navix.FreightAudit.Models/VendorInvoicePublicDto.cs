@@ -74,6 +74,14 @@ namespace Navix.FreightAudit.Models
 #else
         public global::Navix.FreightAudit.Models.VendorInvoicePublicDto_metadata Metadata { get; set; }
 #endif
+        /// <summary>The order property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::Navix.FreightAudit.Models.VendorInvoiceOrderPublicDto? Order { get; set; }
+#nullable restore
+#else
+        public global::Navix.FreightAudit.Models.VendorInvoiceOrderPublicDto Order { get; set; }
+#endif
         /// <summary>The receivedDate property</summary>
         public DateTimeOffset? ReceivedDate { get; set; }
         /// <summary>The referenceNumbers property</summary>
@@ -142,7 +150,7 @@ namespace Navix.FreightAudit.Models
         /// <param name="parseNode">The parse node to use to read the discriminator value and create the object</param>
         public static global::Navix.FreightAudit.Models.VendorInvoicePublicDto CreateFromDiscriminatorValue(IParseNode parseNode)
         {
-            _ = parseNode ?? throw new ArgumentNullException(nameof(parseNode));
+            if(ReferenceEquals(parseNode, null)) throw new ArgumentNullException(nameof(parseNode));
             return new global::Navix.FreightAudit.Models.VendorInvoicePublicDto();
         }
         /// <summary>
@@ -162,6 +170,7 @@ namespace Navix.FreightAudit.Models
                 { "invoiceNumber", n => { InvoiceNumber = n.GetStringValue(); } },
                 { "items", n => { Items = n.GetCollectionOfObjectValues<global::Navix.FreightAudit.Models.VendorInvoiceItemPublicDto>(global::Navix.FreightAudit.Models.VendorInvoiceItemPublicDto.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "metadata", n => { Metadata = n.GetObjectValue<global::Navix.FreightAudit.Models.VendorInvoicePublicDto_metadata>(global::Navix.FreightAudit.Models.VendorInvoicePublicDto_metadata.CreateFromDiscriminatorValue); } },
+                { "order", n => { Order = n.GetObjectValue<global::Navix.FreightAudit.Models.VendorInvoiceOrderPublicDto>(global::Navix.FreightAudit.Models.VendorInvoiceOrderPublicDto.CreateFromDiscriminatorValue); } },
                 { "receivedDate", n => { ReceivedDate = n.GetDateTimeOffsetValue(); } },
                 { "referenceNumbers", n => { ReferenceNumbers = n.GetCollectionOfObjectValues<global::Navix.FreightAudit.Models.VendorInvoiceReferenceNumberPublicDto>(global::Navix.FreightAudit.Models.VendorInvoiceReferenceNumberPublicDto.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "service", n => { Service = n.GetObjectValue<global::Navix.FreightAudit.Models.VendorInvoiceServicePublicDto>(global::Navix.FreightAudit.Models.VendorInvoiceServicePublicDto.CreateFromDiscriminatorValue); } },
@@ -179,7 +188,7 @@ namespace Navix.FreightAudit.Models
         /// <param name="writer">Serialization writer to use to serialize this model</param>
         public virtual void Serialize(ISerializationWriter writer)
         {
-            _ = writer ?? throw new ArgumentNullException(nameof(writer));
+            if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteStringValue("chargeTerms", ChargeTerms);
             writer.WriteStringValue("currency", Currency);
             writer.WriteObjectValue<global::Navix.FreightAudit.Models.VendorInvoiceCustomerPublicDto>("customer", Customer);
@@ -189,6 +198,7 @@ namespace Navix.FreightAudit.Models
             writer.WriteStringValue("invoiceNumber", InvoiceNumber);
             writer.WriteCollectionOfObjectValues<global::Navix.FreightAudit.Models.VendorInvoiceItemPublicDto>("items", Items);
             writer.WriteObjectValue<global::Navix.FreightAudit.Models.VendorInvoicePublicDto_metadata>("metadata", Metadata);
+            writer.WriteObjectValue<global::Navix.FreightAudit.Models.VendorInvoiceOrderPublicDto>("order", Order);
             writer.WriteDateTimeOffsetValue("receivedDate", ReceivedDate);
             writer.WriteCollectionOfObjectValues<global::Navix.FreightAudit.Models.VendorInvoiceReferenceNumberPublicDto>("referenceNumbers", ReferenceNumbers);
             writer.WriteObjectValue<global::Navix.FreightAudit.Models.VendorInvoiceServicePublicDto>("service", Service);

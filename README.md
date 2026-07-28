@@ -70,6 +70,21 @@ var result = await client.Invoices.GetAuditResultAsync("invoice-uuid-here");
 ```
 Note: Some endpoints may return 202 Accepted and complete asynchronously.
 
+## Response content types
+
+The public OpenAPI document currently labels six JSON responses as `text/json`.
+Kiota treats those responses as unstructured content and generates `Stream`
+return types instead of typed models. Before regenerating the client, this
+repository normalizes those six response media types to `application/json`.
+Preserve that normalization whenever `openapi.json` is replaced.
+
+- `GET /v2/orders/{orderExternalId}/invoices`
+- `GET /v2/documents/metadata/{documentUuid}`
+- `GET /v2/documents/orders/{orderExternalId}`
+- `GET /v2/documents/metadata/orders/{orderExternalId}`
+- `POST /v2/documents/approved`
+- `POST /v2/orders/approved`
+
 ## Required setup for consumers
 
 Call `NavixResponseCasing.Register` once at start-up. It is the only setup a

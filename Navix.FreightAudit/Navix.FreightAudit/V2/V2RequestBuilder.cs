@@ -3,10 +3,12 @@
 using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions;
 using Navix.FreightAudit.V2.Attachment;
+using Navix.FreightAudit.V2.Customers;
 using Navix.FreightAudit.V2.Documents;
 using Navix.FreightAudit.V2.Invoices;
 using Navix.FreightAudit.V2.Orders;
 using Navix.FreightAudit.V2.Pre;
+using Navix.FreightAudit.V2.Vendors;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -23,6 +25,11 @@ namespace Navix.FreightAudit.V2
         public global::Navix.FreightAudit.V2.Attachment.AttachmentRequestBuilder Attachment
         {
             get => new global::Navix.FreightAudit.V2.Attachment.AttachmentRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The customers property</summary>
+        public global::Navix.FreightAudit.V2.Customers.CustomersRequestBuilder Customers
+        {
+            get => new global::Navix.FreightAudit.V2.Customers.CustomersRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The documents property</summary>
         public global::Navix.FreightAudit.V2.Documents.DocumentsRequestBuilder Documents
@@ -43,6 +50,11 @@ namespace Navix.FreightAudit.V2
         public global::Navix.FreightAudit.V2.Pre.PreRequestBuilder Pre
         {
             get => new global::Navix.FreightAudit.V2.Pre.PreRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The vendors property</summary>
+        public global::Navix.FreightAudit.V2.Vendors.VendorsRequestBuilder Vendors
+        {
+            get => new global::Navix.FreightAudit.V2.Vendors.VendorsRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>
         /// Instantiates a new <see cref="global::Navix.FreightAudit.V2.V2RequestBuilder"/> and sets the default values.

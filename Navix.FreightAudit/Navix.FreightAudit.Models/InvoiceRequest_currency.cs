@@ -15,5 +15,9 @@ namespace Navix.FreightAudit.Models
         #pragma warning disable CS1591
         CAD,
         #pragma warning restore CS1591
+        [EnumMember(Value = "MXN")]
+        #pragma warning disable CS1591
+        MXN,
+        #pragma warning restore CS1591
     }
 }

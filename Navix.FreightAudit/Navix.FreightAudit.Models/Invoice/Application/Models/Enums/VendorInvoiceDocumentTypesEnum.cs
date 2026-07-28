@@ -252,5 +252,25 @@ namespace Navix.FreightAudit.Models.Invoice.Application.Models.Enums
         #pragma warning disable CS1591
         TripSheet,
         #pragma warning restore CS1591
+        [EnumMember(Value = "NonFreightInvoice")]
+        #pragma warning disable CS1591
+        NonFreightInvoice,
+        #pragma warning restore CS1591
+        [EnumMember(Value = "FuelReceipt")]
+        #pragma warning disable CS1591
+        FuelReceipt,
+        #pragma warning restore CS1591
+        [EnumMember(Value = "ACEManifest")]
+        #pragma warning disable CS1591
+        ACEManifest,
+        #pragma warning restore CS1591
+        [EnumMember(Value = "HazmatForm")]
+        #pragma warning disable CS1591
+        HazmatForm,
+        #pragma warning restore CS1591
+        [EnumMember(Value = "FoodInspection")]
+        #pragma warning disable CS1591
+        FoodInspection,
+        #pragma warning restore CS1591
     }
 }
