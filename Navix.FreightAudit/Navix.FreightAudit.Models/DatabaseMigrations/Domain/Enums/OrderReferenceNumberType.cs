@@ -32,5 +32,9 @@ namespace Navix.FreightAudit.Models.DatabaseMigrations.Domain.Enums
         #pragma warning disable CS1591
         ExternalInvoiceId,
         #pragma warning restore CS1591
+        [EnumMember(Value = "GLCode")]
+        #pragma warning disable CS1591
+        GLCode,
+        #pragma warning restore CS1591
     }
 }

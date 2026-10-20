@@ -89,6 +89,14 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
 #endif
         /// <summary>The date the invoice was received by email. Received date is only captured for invoices originating from our Email ingestion process. In the UI, this will be where Invoice source = Email.</summary>
         public Date? ReceivedDate { get; set; }
+        /// <summary>The service property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultServiceV2? Service { get; set; }
+#nullable restore
+#else
+        public global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultServiceV2 Service { get; set; }
+#endif
         /// <summary>The source of the document. Possible values include:* `Manual`: the document was uploaded through the Navix UI* `EDI`: the document was received thrugh EDI* `Email`: the document was received via email* `API`: the document was uploaded to the Navix APISome deprecated endpoints refer to this as `VendorInvoiceFormatDescription`.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -148,7 +156,7 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
         /// <param name="parseNode">The parse node to use to read the discriminator value and create the object</param>
         public static global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultDetailsV2 CreateFromDiscriminatorValue(IParseNode parseNode)
         {
-            _ = parseNode ?? throw new ArgumentNullException(nameof(parseNode));
+            if(ReferenceEquals(parseNode, null)) throw new ArgumentNullException(nameof(parseNode));
             return new global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultDetailsV2();
         }
         /// <summary>
@@ -173,6 +181,7 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
                 { "paymentTerms", n => { PaymentTerms = n.GetStringValue(); } },
                 { "payments", n => { Payments = n.GetCollectionOfObjectValues<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultPaymentV2>(global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultPaymentV2.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "receivedDate", n => { ReceivedDate = n.GetDateValue(); } },
+                { "service", n => { Service = n.GetObjectValue<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultServiceV2>(global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultServiceV2.CreateFromDiscriminatorValue); } },
                 { "source", n => { Source = n.GetStringValue(); } },
                 { "stops", n => { Stops = n.GetCollectionOfObjectValues<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultStopV2>(global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultStopV2.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "tags", n => { Tags = n.GetObjectValue<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultDetailsV2_tags>(global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultDetailsV2_tags.CreateFromDiscriminatorValue); } },
@@ -189,7 +198,7 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
         /// <param name="writer">Serialization writer to use to serialize this model</param>
         public virtual void Serialize(ISerializationWriter writer)
         {
-            _ = writer ?? throw new ArgumentNullException(nameof(writer));
+            if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteDateValue("approvedDate", ApprovedDate);
             writer.WriteStringValue("approverEmail", ApproverEmail);
             writer.WriteBoolValue("associatedOrderLineItems", AssociatedOrderLineItems);
@@ -204,6 +213,7 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
             writer.WriteCollectionOfObjectValues<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultPaymentV2>("payments", Payments);
             writer.WriteStringValue("paymentTerms", PaymentTerms);
             writer.WriteDateValue("receivedDate", ReceivedDate);
+            writer.WriteObjectValue<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultServiceV2>("service", Service);
             writer.WriteStringValue("source", Source);
             writer.WriteCollectionOfObjectValues<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultStopV2>("stops", Stops);
             writer.WriteObjectValue<global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultDetailsV2_tags>("tags", Tags);

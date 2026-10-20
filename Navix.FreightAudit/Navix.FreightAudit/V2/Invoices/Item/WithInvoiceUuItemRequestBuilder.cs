@@ -6,6 +6,7 @@ using Microsoft.Kiota.Abstractions;
 using Navix.FreightAudit.Models;
 using Navix.FreightAudit.V2.Invoices.Item.Disputes;
 using Navix.FreightAudit.V2.Invoices.Item.Documents;
+using Navix.FreightAudit.V2.Invoices.Item.Exceptions;
 using Navix.FreightAudit.V2.Invoices.Item.Payments;
 using System.Collections.Generic;
 using System.IO;
@@ -29,6 +30,11 @@ namespace Navix.FreightAudit.V2.Invoices.Item
         public global::Navix.FreightAudit.V2.Invoices.Item.Documents.DocumentsRequestBuilder Documents
         {
             get => new global::Navix.FreightAudit.V2.Invoices.Item.Documents.DocumentsRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The exceptions property</summary>
+        public global::Navix.FreightAudit.V2.Invoices.Item.Exceptions.ExceptionsRequestBuilder Exceptions
+        {
+            get => new global::Navix.FreightAudit.V2.Invoices.Item.Exceptions.ExceptionsRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The payments property</summary>
         public global::Navix.FreightAudit.V2.Invoices.Item.Payments.PaymentsRequestBuilder Payments

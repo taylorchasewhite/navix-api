@@ -24,6 +24,14 @@ namespace Navix.FreightAudit.Models
 #endif
         /// <summary>The date on which the communication was created</summary>
         public DateTimeOffset? CreatedAt { get; set; }
+        /// <summary>The email of the user who created the dispute, not the author of this communication. It is the same on every communication of the dispute, and null for automatically created disputes or when the email can&apos;t be resolved</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? DisputeCreatedByEmail { get; set; }
+#nullable restore
+#else
+        public string DisputeCreatedByEmail { get; set; }
+#endif
         /// <summary>If the communication was an email, this is the email-specific parts of the communication; otherwise this is null</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -56,7 +64,7 @@ namespace Navix.FreightAudit.Models
         /// <param name="parseNode">The parse node to use to read the discriminator value and create the object</param>
         public static global::Navix.FreightAudit.Models.CommunicationResponse CreateFromDiscriminatorValue(IParseNode parseNode)
         {
-            _ = parseNode ?? throw new ArgumentNullException(nameof(parseNode));
+            if(ReferenceEquals(parseNode, null)) throw new ArgumentNullException(nameof(parseNode));
             return new global::Navix.FreightAudit.Models.CommunicationResponse();
         }
         /// <summary>
@@ -69,6 +77,7 @@ namespace Navix.FreightAudit.Models
             {
                 { "attachments", n => { Attachments = n.GetCollectionOfObjectValues<global::Navix.FreightAudit.Models.CommunicationAttachmentResponse>(global::Navix.FreightAudit.Models.CommunicationAttachmentResponse.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "createdAt", n => { CreatedAt = n.GetDateTimeOffsetValue(); } },
+                { "disputeCreatedByEmail", n => { DisputeCreatedByEmail = n.GetStringValue(); } },
                 { "email", n => { Email = n.GetObjectValue<global::Navix.FreightAudit.Models.CommunicationEmailResponse>(global::Navix.FreightAudit.Models.CommunicationEmailResponse.CreateFromDiscriminatorValue); } },
                 { "text", n => { Text = n.GetStringValue(); } },
                 { "uuid", n => { Uuid = n.GetGuidValue(); } },
@@ -80,9 +89,10 @@ namespace Navix.FreightAudit.Models
         /// <param name="writer">Serialization writer to use to serialize this model</param>
         public virtual void Serialize(ISerializationWriter writer)
         {
-            _ = writer ?? throw new ArgumentNullException(nameof(writer));
+            if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteCollectionOfObjectValues<global::Navix.FreightAudit.Models.CommunicationAttachmentResponse>("attachments", Attachments);
             writer.WriteDateTimeOffsetValue("createdAt", CreatedAt);
+            writer.WriteStringValue("disputeCreatedByEmail", DisputeCreatedByEmail);
             writer.WriteObjectValue<global::Navix.FreightAudit.Models.CommunicationEmailResponse>("email", Email);
             writer.WriteStringValue("text", Text);
             writer.WriteGuidValue("uuid", Uuid);

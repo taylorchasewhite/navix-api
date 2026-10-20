@@ -24,6 +24,16 @@ namespace Navix.FreightAudit.Models
 #else
         public string Description { get; set; }
 #endif
+        /// <summary>The human-readable description of the dispute reason group. Reflects the tenant&apos;s CURRENT reason-group configuration. Null when the group cannot be resolved: the reason&apos;s configuration was renamed or deleted (on disputes created before reason-UUID stamping), the reason was created free-text via the API and matches no configuration, or the matched reason has no group assigned. Always paired with disputeReasonGroupUuid.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? DisputeReasonGroupDescription { get; set; }
+#nullable restore
+#else
+        public string DisputeReasonGroupDescription { get; set; }
+#endif
+        /// <summary>The UUID of the dispute reason group this reason&apos;s configured reason belongs to. Reflects the tenant&apos;s CURRENT reason-group configuration (not the assignment at the time the dispute was created). Null when the group cannot be resolved (see disputeReasonGroupDescription). Always paired with disputeReasonGroupDescription: both are present and non-null, or both are null.</summary>
+        public Guid? DisputeReasonGroupUuid { get; set; }
         /// <summary>The date on which the dispute reason was resolved. The dispute is considered resolved when all dispute reasons have been resolved. Null for an unresolved dispute reason</summary>
         public DateTimeOffset? ResolvedAt { get; set; }
         /// <summary>
@@ -40,7 +50,7 @@ namespace Navix.FreightAudit.Models
         /// <param name="parseNode">The parse node to use to read the discriminator value and create the object</param>
         public static global::Navix.FreightAudit.Models.DisputeReasonResponse CreateFromDiscriminatorValue(IParseNode parseNode)
         {
-            _ = parseNode ?? throw new ArgumentNullException(nameof(parseNode));
+            if(ReferenceEquals(parseNode, null)) throw new ArgumentNullException(nameof(parseNode));
             return new global::Navix.FreightAudit.Models.DisputeReasonResponse();
         }
         /// <summary>
@@ -53,6 +63,8 @@ namespace Navix.FreightAudit.Models
             {
                 { "createdAt", n => { CreatedAt = n.GetDateTimeOffsetValue(); } },
                 { "description", n => { Description = n.GetStringValue(); } },
+                { "disputeReasonGroupDescription", n => { DisputeReasonGroupDescription = n.GetStringValue(); } },
+                { "disputeReasonGroupUuid", n => { DisputeReasonGroupUuid = n.GetGuidValue(); } },
                 { "resolvedAt", n => { ResolvedAt = n.GetDateTimeOffsetValue(); } },
             };
         }
@@ -62,9 +74,11 @@ namespace Navix.FreightAudit.Models
         /// <param name="writer">Serialization writer to use to serialize this model</param>
         public virtual void Serialize(ISerializationWriter writer)
         {
-            _ = writer ?? throw new ArgumentNullException(nameof(writer));
+            if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteDateTimeOffsetValue("createdAt", CreatedAt);
             writer.WriteStringValue("description", Description);
+            writer.WriteStringValue("disputeReasonGroupDescription", DisputeReasonGroupDescription);
+            writer.WriteGuidValue("disputeReasonGroupUuid", DisputeReasonGroupUuid);
             writer.WriteDateTimeOffsetValue("resolvedAt", ResolvedAt);
             writer.WriteAdditionalData(AdditionalData);
         }

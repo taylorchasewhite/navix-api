@@ -47,7 +47,7 @@ namespace Navix.FreightAudit.V2.Customers
         {
         }
         /// <summary>
-        /// Upserts a customer based on its external ID — creates it if new, updates it if it already exists. Warning: metadata is fully replaced on each PUT; if metadata is omitted, any existing metadata is cleared. Use PATCH /v2/customers/{externalId}/metadata for selective updates.
+        /// Upserts a customer based on its external ID — creates it if new, updates it if it already exists. Warning: metadata is fully replaced on each PUT; if metadata is omitted, any existing metadata is cleared. Use PATCH /v2/customers/{externalId}/metadata for selective updates. The contacts and addresses collections are also replaced in full, but follow a different omitted-versus-empty rule: a collection that is sent is the complete set and replaces everything Navix holds, an empty array clears the collection, and a collection that is omitted (or sent as null) leaves the existing children untouched.
         /// </summary>
         /// <returns>A <see cref="Stream"/></returns>
         /// <param name="body">The request body</param>
@@ -67,7 +67,7 @@ namespace Navix.FreightAudit.V2.Customers
             return await RequestAdapter.SendPrimitiveAsync<Stream>(requestInfo, default, cancellationToken).ConfigureAwait(false);
         }
         /// <summary>
-        /// Upserts a customer based on its external ID — creates it if new, updates it if it already exists. Warning: metadata is fully replaced on each PUT; if metadata is omitted, any existing metadata is cleared. Use PATCH /v2/customers/{externalId}/metadata for selective updates.
+        /// Upserts a customer based on its external ID — creates it if new, updates it if it already exists. Warning: metadata is fully replaced on each PUT; if metadata is omitted, any existing metadata is cleared. Use PATCH /v2/customers/{externalId}/metadata for selective updates. The contacts and addresses collections are also replaced in full, but follow a different omitted-versus-empty rule: a collection that is sent is the complete set and replaces everything Navix holds, an empty array clears the collection, and a collection that is omitted (or sent as null) leaves the existing children untouched.
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="body">The request body</param>

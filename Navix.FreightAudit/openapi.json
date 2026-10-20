@@ -59,13 +59,18 @@
       "x-displayName": "Customers"
     },
     {
+      "name": "API v2_Dispute Reason Groups",
+      "description": "Dispute reasons in Navix are organized into **Dispute Reason Groups**, configured per tenant. The Disputes API (`GET /v2/invoices/{invoiceUuid}/disputes` and `GET /v2/invoices/{invoiceUuid}/disputes/{disputeUuid}`) identifies the group each reason belongs to, so you can route or categorize disputes by group in your own systems.\n\nEach entry in a dispute's `reasons[]` collection includes two group fields:\n\n| Field | Type | Description |\n|---|---|---|\n| `disputeReasonGroupUuid` | string (uuid), nullable | The UUID of the Dispute Reason Group the reason currently belongs to. |\n| `disputeReasonGroupDescription` | string, nullable | The display description of that group. |\n\n```json\n{\n  \"description\": \"Rate discrepancy\",\n  \"createdAt\": \"2026-08-01T14:03:22Z\",\n  \"resolvedAt\": null,\n  \"disputeReasonGroupUuid\": \"3f2a9c1e-7b44-4a1d-9c5e-2f8d6b1a4e07\",\n  \"disputeReasonGroupDescription\": \"Carrier Rates\"\n}\n```\n\n### Behavior notes\n\nPlease read these before building routing or reporting logic on these fields:\n\n- **Both fields are always present, and always null together.** You will never receive a group UUID without its description, or vice versa.\n- **Values reflect current configuration, not point-in-time history.** Reason groups are reassignable in Navix. A dispute resolved months ago reports whatever group its reason belongs to *today*. Do not treat these fields as a historical record for reporting.\n- **`null` is an expected value**, returned when the reason cannot be resolved to a group:\n  - the reason was created via the API with free text that does not match your tenant's configured dispute reasons (dispute creation does not validate reasons against configuration);\n  - the reason belongs to a dispute created before reason identifiers were persisted and its configured reason was since renamed or deleted (a fixed, shrinking population);\n  - the configured reason is not assigned to any group.\n- **Availability is fail-soft.** If group configuration is temporarily unavailable, the endpoints still return disputes successfully with these two fields as `null`.\n\n### Routing guidance\n\nRoute on `disputeReasonGroupUuid` rather than the description — the UUID is stable across group renames. Treat `null` as an \"unrouted\" or default bucket.\n",
+      "x-displayName": "Dispute Reason Groups"
+    },
+    {
       "name": "API v2_Rating Engine",
       "description": "Navix provides the ability to call out to an endpoint in your system that can utilize your rating engine. Our system will allow an auditor to send an updated invoice from our system to your rating engine endpoint to get rated.\n\n## Delivery Guarantees\n\nThis is a webhook in the Navix system but it does not have the same guarantees as the other webhooks.\n\nWe will attempt to call your rating engine endpoint 1 time. If it fails to return a 2xx status code, we might try again based on the status code that was returned. We won't retry 4xx status codes but we may retry 5xx status codes.\n\nIn other words, calls to your rating engine webhook are managed in a different manner than other tenant provided webhooks. The mechanism, manner and guarantees of this webhook are different from the [Webhooks](index.html#tag/API-v2_Webhooks) tab mentioned earlier in the documentation.\n\n## Performance Concerns\n\nIt is important that performance is taken into account inside of rating engines. An auditor in the UI can call the rating engine with the press of a button. If a rating engine takes 15 seconds to complete, each audit will take an additional 15 seconds to complete with each rating engine call.\n\n## Setup\n\nGetting started is straight forward. Our team and your team have a few tasks that need to be accomplished so you use this feature.\n\n### Implementation Responsibilities\n\nOur system will make a call out to an endpoint url that you specify. That endpoint will need to handle the payload that we send, rate the payload and then return a response. You can view request payload and response structure in the `Rating Engine Payload` and `Rating Engine Response` sections below respectively. We do into more detail in the `Endpoint Contract` section\n\nHere are the tasks for your team:\n\n1. Create an endpoint that satisfies the information found in the `Endpoint Contract` section\n1. Provide the url to that endpoint to the Navix team\n1. Contact your account manager so our team can generate a unique api key for you. This api key is the one all our requests will use so you can be sure that the requests are coming from our system. How it is used is covered in the `Endpoint Contract` section.\n\nHere are the tasks for the Navix team:\n\n1. Provide you with a unique api key so you can be sure the requests are coming from us.\n1. Add your endpoint url to our system so we can contact you.\n1. Support you.\n\n## Endpoint Contract\n\nIn order for the Navix system to contact your rating engine we need an endpoint that meets the following requirements:\n\n1. The endpoint must be able to handle a `POST` request.\n1. The endpoint must handle an `apikey` query string argument. The `apikey` value is one that our team has generated for you. You can get this by contacting your account manager. Your endpoint should validate that the `apikey` value is the same that we provided you. If it is not, you should return a `401 Unauthorized` status code.\n1. The endpoint must handle the request payload. The request payload is an invoice from our system that needs to be rated. You can learn more about the payload and what each field means in the `Rating Engine Payload` section below.\n1. The endpoint must map your system's raw rating response to the rating engine response that we are expecting. You can view that structure in the `Rating Engine Response` section below.\n1. The endpoint must return a 2xx response along with the structure provided in the `Rating Engine Response` section below. Please note that we are expecting a single rating engine response from your endpoint. You might have a rating engine that rate shops multiple vendors, please trim down your response to only include the selected vendor response. If your rating engine throws an exception, it is beneficial to the auditor to return a 2xx response and populate the `RawResponse` field with the exception. These exceptions provides feedback to the auditors so they can make corrections or let them know that a system is temporarily down.\n\nIf the endpoint returns a 2xx response we mark that as a success. All other responses are treated as failures and retry attempts happen where it makes sense.\n\nWe can visualize the contract the following way:\n\n![Endpoint Contract Flow](https://docs.navix.io/assets/rating-engine-endpoint-contract-flow.png)\n\n### Rating Engine Payload\n\nOur payload is an invoice from our system. We have provided an example below to show the structure and a sample of data. An explanation of the fields is below the example.\n```\n{\n  \"Uuid\": \"e4c3b17a-d207-43f9-ba2d-f61d068c7808\",\n  \"ExternalOrderId\": \"MyOrderId\",\n  \"FreightChargeTerms\": \"Prepaid\",\n  \"DeliveryDate\": \"2024-04-11T12:34:56Z\",\n  \"ShipDate\": \"2024-04-01T08:00:00Z\",\n  \"Vendor\": {\n    \"ExternalId\": \"147-888\",\n    \"SCAC\": \"SAIA\"\n  },\n  \"Customer\": {\n    \"ExternalId\": \"6594HH4\"\n  },\n  \"Stops\": [\n    {\n      \"Type\": \"Origin\",\n      \"City\": \"Beverly Hills\",\n      \"Zip\": \"90210\",\n      \"CountryCode\": \"USA\",\n      \"StateCode\": \"CA\"\n    },\n    {\n      \"Type\": \"Destination\",\n      \"City\": \"Dallas\",\n      \"Zip\": \"75080\",\n      \"CountryCode\": \"USA\",\n      \"StateCode\": \"TX\"\n    }\n  ],\n  \"LineItems\": [\n    {\n      \"Description\": \"Navix branded shoes\",\n      \"HandlingUnit\": \"Pallet\",\n      \"HandlingUnitCode\": \"PLT\",\n      \"HandlingUnitCount\": 4,\n      \"Weight\": 231.10,\n      \"WeightUnit\": \"LBS\",\n      \"Class\": 100.00,\n      \"Height\": 50.00,\n      \"Width\": 40.00,\n      \"Length\": 48.00,\n      \"Stackable\": true\n    }\n  ],\n  \"VendorCharges\": [\n    {\n      \"Code\": \"ACH\",\n      \"PostMapped\": {\n        \"ChargeTypeUuid\": \"74473142-1439-48CD-ACA0-15507658CAE3\",\n        \"ChargeType\": \"Limited Access Delivery\"\n      }\n    }\n  ],\n  \"OrderMetadata\": {\n    \"AnyValue\": {\n      \"ForInstanceATrackingNumber\": \"123-789\",\n      \"OrAnything\": \"2026-06-01\"\n    },\n    \"SomeOtherValue\": {\n      \"sample1\": \"value1\"\n    }\n  }\n}\n```\n\n* `Uuid` is a unique identifier for the invoice in the Navix system.\n* `ExternalOrderId` is the order id in your system that this invoice is for.\n* `FreightChargeTerms` is how the freight is paid. Possible values include: `Collect`, `Prepaid`, `Prepaid & Add` and `Third Party`\n* `DeliveryDate` is the UTC datetime of when the shipment was delivered.\n* `ShipDate` is the UTC datetime of when the shipment was shipped.\n* `Vendor`\n  * `ExternalId` is the id in your system that this vendor is known as.\n  * `SCAC` is the SCAC code for this vendor.\n* `Customer`\n  * `ExternalId` is the id in your system that this customer is known as.\n* `Stops`\n  * `Stops.Type` is what type of stop this is. Possible values include: `Origin`, `Destination` and `BillTo`.\n  * `Stops.City` is city for this stop.\n  * `Stops.Zip` is the zip code for this stop.\n  * `Stops.CountryCode` is the country code for this stop. Possible values include: `USA`, `CAN` and `MEX`.\n  * `Stops.StateCode` is the state code for this stop.\n* `LineItems`\n  * `LineItems.Description` is the description for this line item.\n  * `LineItems.HandlingUnit` is the container for this line item. Possible values include: `Pallet`, `Drum`, `Bag`, `Barrels`, `Crates`, `Bundles`, `Pieces`, `Loose`, `Boxes`, `Cases`, `Carton` and `Totes`.\n  * `LineItems.HandlingUnitCode` is the alias for the HandlingUnit above.\n  * `LineItems.HandlingUnitCount` is how many containers are used for this line item\n  * `LineItems.Weight` is the weight for this line item.\n  * `LineItems.WeightUnit` is the weight unit used for this line item. Possible values include: `LBS` and `KG`\n  * `LineItems.Class` is the shipping class.\n  * `LineItems.Height` is the height for this line item.\n  * `LineItems.Width` is the width for this line item.\n  * `LineItems.Length` is the length for this line item.\n  * `LineItems.Stackable` indicates whether line item is stackable.\n* `VendorCharges`\n  * `Code` the charge code in your system for this charge.\n  * `PostMapped` is the Navix charge type this charge is currently classified as. Because `Code` can vary by carrier and is not guaranteed to be one of your codes, `PostMapped` is the reliable way to identify what a charge is.\n    * `PostMapped.ChargeTypeUuid` is the unique identifier of the Navix charge type.\n    * `PostMapped.ChargeType` is the description of the Navix charge type.\n* `OrderMetadata` is a set of metadata associated with the order this invoice was matched to. It is an object whose keys are metadata group names and whose values are objects of string key/value pairs. This is only present when the invoice is matched to an order; it will be `null` or omitted for orderless invoices.\n\n### Rating Engine Response\n\nOnce the invoice has been rated, we need the results mapped in a format our system can understand. Please note that we are expecting a single rating engine response from your endpoint. You might have a rating engine that rate shops multiple vendors, please trim down your response to only include the selected vendor response. \n\nWe have provided an example below to show the structure and a sample of data. An explanation of the fields is below the example.\n\n```\n{\n  \"RawResponse\": \"...\",\n  \"RawResponseType\": \"JSON\",\n  \"VendorCharges\": [\n    {\n      \"Code\": \"ACH\",\n      \"Description\": \"LIMITED ACCESS DELIVERY\",\n      \"PostMapped\": {\n        \"ChargeTypeUuid\": \"74473142-1439-48CD-ACA0-15507658CAE3\",\n        \"ChargeType\": \"Limited Access Delivery\"\n      },\n      \"Amount\": 83.2500,\n      \"Rate\": 55.5000,\n      \"Quantity\": 1.5000,\n      \"Qualifier\": \"PerMile\"\n    },\n    {\n      \"Code\": \"NFY\",\n      \"Description\": \"NOTIFICATION FEE\",\n      \"Amount\": 106.52\n    }\n  ],\n  \"CustomerCharges\": [\n    {\n      \"Code\": \"ACH\",\n      \"Description\": \"LIMITED ACCESS DELIVERY\",\n      \"Amount\": 59.35\n    }\n  ] \n}\n```\n\n* `RawResponse` is a raw response from your rating engine. This can be the response when a rate was returned or in the case where there was an exception from the rating engine. Providing this can be beneficial to auditors. Auditors will have the visibility to see this response in the UI. \n* `RawResponseType` is format of the `RawResponse` field. Possible values include: Json, Xml and Text.\n* `VendorCharges`\n  * `Code` the charge code in your system for this charge.\n  * `Description` is a description of the charge.\n  * `PostMapped` (optional) lets you return a charge already mapped to a Navix charge type, in addition to or instead of a raw `Code`/`Description`. When provided, we use it to identify the charge: `PostMapped.ChargeTypeUuid` is matched first, then `PostMapped.ChargeType` (description) as a fallback, before falling back to `Code`/`Description`.\n    * `PostMapped.ChargeTypeUuid` is the unique identifier of the Navix charge type.\n    * `PostMapped.ChargeType` is the description of the Navix charge type.\n  * `Amount` is the amount for this charge.\n  * `Rate` represents the price per unit as defined by Qualifier.\n  * `Quantity` is the number of units that the Rate applies to, aligned to the Qualifier’s unit.\n  * `Qualifier` indicates the unit type for Rate and Quantity calculations. Supported values: PerPound, PerHundredweight, PerTon, PerMile, PerKilometer, PerHour, PerCase, PerPallet, PerUnit, Percent.\n* `CustomerCharges`\n  * `Code` is the as `VendorCharges.Code` above.\n  * `Description` is the as `VendorCharges.Description` above.\n  * `Amount` is the as `VendorCharges.Amount` above but relevant to a customer.\n  * `Rate` is the as `VendorCharges.Rate` above.\n  * `Quantity` is the as `VendorCharges.Quantity` above.\n  * `Qualifier` is the as `VendorCharges.Qualifier` above.\n\n### Important Rate Qualifier Validation Rules\n\nIf any of these validations fail, we'll display the validation message results to auditors through the button next to the Audit column in the charges grid within the Navix App, similar to how validation messages are currently shown when we receive a 400 Bad Request response.\n\n- Rate qualifier properties (`Rate`, `Quantity`, `Qualifier`) must be used as a complete set - either all three must be provided together, or all three must be null/omitted\n- When all three are provided, the system validates that `Amount` equals `Rate × Quantity` (with 4 decimal places precision)\n- `Qualifier` values are strictly validated against our supported enumeration\n",
       "x-displayName": "Rating Engine"
     },
     {
       "name": "API v2_Webhooks",
-      "description": "A webhook is a callback mechanism that causes Navix to make an API request to a consumer system when events occur within Navix.\n\nOur webhooks are \"thin\". That is, they're lightweight and usually contain IDs that can be used to retreive additional data via API.\n\n## Webhook Callback Payload\n\nAll webhooks have the same payload structure as this example:\n```\n{\n\t\"id\": \"00000000-0000-0000-0000-000000000000\",\n\t\"type\": \"DISPUTE_CREATED\",\n\t\"time\": \"2025-01-01T12:00:00.000000\",\n\t\"data\": \"\\{ \\\"invoiceUuid\\\": \\\"<uuid>\\\" \\}\"\n}\n```\n\n* `id` is a unique identifier for the event. Note that this is _not_ the identifier for the object (invoice, dispute, etc.) which triggered the event.\n* `type` is the specific type of event that triggered the webhook. Possible values include:\n  * `INVOICE_CREATED`\n  * `INVOICE_APPROVED`\n  * `INVOICE_MATCHED`\n  * `INVOICE_UNMATCHED`\n  * `DISPUTE_CREATED`\n  * `DISPUTE_UPDATED`\n  * `DISPUTE_COMMUNICATION_CREATED`\n  * `ORDER_APPROVED`\n  * `DOCUMENT_APPROVED`\n* `time` is the UTC time of when the event occurred.\n* `data` contains a JSON object with details for the event. The specific data varies depending on the type of event that occurred. Note that the JSON has been escaped.\n\n## Delivery Guarantees\n\nThe webhook consumer should return a status code between 200 and 299 (inclusive) within about 20 seconds.\n\nIf the consumer is unreachable, doesn't respond promptly, or returns a status code less than 200 or greater than 299, we will consider the delivery attempt failed and will make another attempt.\n\nWe use an exponential backoff algorithm to determine the time between delivery attempts, starting at a few seconds and increasing to a maximum of 1 hour.  We will continue to attempt delivery for 8 hours beyond the initial attempt, after which the message will be discarded.\n\nWe aim for at-least-once delivery, so a single event may hit the webhook receiver multiple times. When that occurs, the `id` will be the same across the multiple requests, so it can be used as an idempotency key by consumers.\n\nWe cannot guarantee that webhooks will arrive in order. That is, if a dispute is updated twice, the webhook for the second update could arrive before the first. If that's likely to cause issues, we recommend recording the `time` field on the webhook and comparing that stored time to the time on any received webhook.\n\n## Event Types\n\n### `INVOICE_CREATED`\n\nThis event is raised whenever an invoice is created.\n\n#### `data` object\n\n```\n{\n  \"invoiceUuid\": \"00000000-0000-0000-0000-000000000000\"\n}\n```\n\n* `invoiceUuid` is the identifier for the invoice which was created.\n\n### `INVOICE_APPROVED`\n\nThis event is raised whenever an invoice is approved. Note that this is only raised for approvals, not for terminated invoices.\n\n#### `data` object\n\n```\n{\n  \"invoiceUuid\": \"00000000-0000-0000-0000-000000000000\"\n}\n```\n\n* `invoiceUuid` is the identifier for the invoice which was approved.\n\n### `INVOICE_MATCHED`\n\nThis event is raised whenever an invoice is matched to an order. It is raised in both directions: when an invoice arrives and matches an existing order, and when an order arrives and matches an existing invoice.\n\n#### `data` object\n\n```\n{\n  \"invoiceUuid\": \"00000000-0000-0000-0000-000000000000\",\n  \"orderExternalId\": \"ORD_123\"\n}\n```\n\n* `invoiceUuid` is the identifier for the matched invoice.\n* `orderExternalId` is the order Id as stored in the tenant system outside of Navix. If the order has no external Id, this defaults to the order number.\n\n### `INVOICE_UNMATCHED`\n\nThis event is raised whenever an invoice is unmatched from an order — either because it was fully unmatched, or because it was re-matched to a different order (in which case a corresponding `INVOICE_MATCHED` for the new order follows). Re-matching an invoice to the same order it was already matched to does not raise this event.\n\n#### `data` object\n\n```\n{\n  \"invoiceUuid\": \"00000000-0000-0000-0000-000000000000\",\n  \"orderExternalId\": \"ORD_123\"\n}\n```\n\n* `invoiceUuid` is the identifier for the unmatched invoice.\n* `orderExternalId` is the order Id as stored in the tenant system outside of Navix. If the order has no external Id, this defaults to the order number.\n\n### `DISPUTE_CREATED`\n\nThis event is raised whenever a new dispute is created.\n\n#### `data` object\n\n```\n{\n  \"invoiceUuid\": \"00000000-0000-0000-0000-000000000000\",\n  \"disputeUuid\": \"00000000-0000-0000-0000-000000000000\"\n}\n```\n\n* `invoiceUuid` is the identifier for the invoice on which the dispute was created.\n* `disputeUuid` is the identifier for the newly created dispute.\n\n### `DISPUTE_UPDATED`\n\nThis event is raised whenever a dispute is updated. Note that creating and updating are separate events, so this event isn't raised when the dispute is initially created.\n\n#### `data` object\n\n```\n{\n  \"invoiceUuid\": \"00000000-0000-0000-0000-000000000000\",\n  \"disputeUuid\": \"00000000-0000-0000-0000-000000000000\"\n}\n```\n\n* `invoiceUuid` is the identifier for the invoice associated with the dispute that was updated.\n* `disputeUuid` is the identifier for the updated dispute.\n\n### `DISPUTE_COMMUNICATION_CREATED`\n\nThis event is raised whenever a new communication is created on a dispute.\n\nCommunications are immutable, so there's no corresponding webhook for updates to a communication.\n\nNote that whenever a dispute is created, an initial communication is usually created at the same time. It's possible the `DISPUTE_COMMUNICATION_CREATED` webhook will arrive before the `DISPUTE_CREATED` webhook.\n\n#### `data` object\n\n```\n{\n  \"invoiceUuid\": \"00000000-0000-0000-0000-000000000000\",\n  \"disputeUuid\": \"00000000-0000-0000-0000-000000000000\",\n  \"communicationUuid\": \"00000000-0000-0000-0000-000000000000\"\n}\n```\n\n* `invoiceUuid` is the identifier for the invoice associated with the dispute.\n* `disputeUuid` is the identifier for the dispute.\n* `communicationUuid` is the identifier for the created communication.\n\n### `ORDER_APPROVED`\n\nThis event is raised whenever an order is approved.\n\n#### `data` object\n\n```\n{\n  \"orderExternalId\": \"ORD_123\"\n}\n```\n\n* `orderExternalId` is the order Id as stored in the tenant system outside of Navix.\n\n### `DOCUMENT_APPROVED`\n\nThis event is raised whenever an\\ document is approved.\n\n#### `data` object\n\n```\n{\n  \"orderExternalId\": \"ORD_123\",\n  \"documentUuid\": \"00000000-0000-0000-0000-000000000000\"\n}\n```\n\n* `documentUuid` is the identifier for the document as stored in Navix.\n* `orderExternalId` is the order Id as stored in the tenant system outside of Navix.",
+      "description": "A webhook is a callback mechanism that causes Navix to make an API request to a consumer system when events occur within Navix.\n\nOur webhooks are \"thin\". That is, they're lightweight and usually contain IDs that can be used to retreive additional data via API.\n\n## Webhook Callback Payload\n\nAll webhooks have the same payload structure as this example:\n```\n{\n\t\"id\": \"00000000-0000-0000-0000-000000000000\",\n\t\"type\": \"DISPUTE_CREATED\",\n\t\"time\": \"2025-01-01T12:00:00.000000\",\n\t\"data\": \"\\{ \\\"invoiceUuid\\\": \\\"<uuid>\\\" \\}\"\n}\n```\n\n* `id` is a unique identifier for the event. Note that this is _not_ the identifier for the object (invoice, dispute, etc.) which triggered the event.\n* `type` is the specific type of event that triggered the webhook. Possible values include:\n  * `INVOICE_CREATED`\n  * `INVOICE_APPROVED`\n  * `INVOICE_TERMINATED`\n  * `INVOICE_MATCHED`\n  * `INVOICE_UNMATCHED`\n  * `INVOICE_EXCEPTIONS_UPDATED`\n  * `DISPUTE_CREATED`\n  * `DISPUTE_UPDATED`\n  * `DISPUTE_COMMUNICATION_CREATED`\n  * `ORDER_APPROVED`\n  * `DOCUMENT_APPROVED`\n* `time` is the UTC time of when the event occurred.\n* `data` contains a JSON object with details for the event. The specific data varies depending on the type of event that occurred. Note that the JSON has been escaped.\n\n## Delivery Guarantees\n\nThe webhook consumer should return a status code between 200 and 299 (inclusive) within about 20 seconds.\n\nIf the consumer is unreachable, doesn't respond promptly, or returns a status code less than 200 or greater than 299, we will consider the delivery attempt failed and will make another attempt.\n\nWe use an exponential backoff algorithm to determine the time between delivery attempts, starting at a few seconds and increasing to a maximum of 1 hour.  We will continue to attempt delivery for 8 hours beyond the initial attempt, after which the message will be discarded.\n\nWe aim for at-least-once delivery, so a single event may hit the webhook receiver multiple times. When that occurs, the `id` will be the same across the multiple requests, so it can be used as an idempotency key by consumers.\n\nWe cannot guarantee that webhooks will arrive in order. That is, if a dispute is updated twice, the webhook for the second update could arrive before the first. If that's likely to cause issues, we recommend recording the `time` field on the webhook and comparing that stored time to the time on any received webhook.\n\n## Event Types\n\n### `INVOICE_CREATED`\n\nThis event is raised whenever an invoice is created.\n\n#### `data` object\n\n```\n{\n  \"invoiceUuid\": \"00000000-0000-0000-0000-000000000000\"\n}\n```\n\n* `invoiceUuid` is the identifier for the invoice which was created.\n\n### `INVOICE_APPROVED`\n\nThis event is raised whenever an invoice is approved. Note that this is only raised for approvals; terminated invoices raise `INVOICE_TERMINATED` instead.\n\n#### `data` object\n\n```\n{\n  \"invoiceUuid\": \"00000000-0000-0000-0000-000000000000\"\n}\n```\n\n* `invoiceUuid` is the identifier for the invoice which was approved.\n\n### `INVOICE_TERMINATED`\n\nThis event is raised whenever an invoice is terminated, whether a user terminated it in Navix, it was terminated through the API, or Navix terminated it automatically (for example, when resolving a duplicate).\n\nThe `Get invoice` endpoint works for terminated invoices, so you can use it to retrieve the invoice number and reference numbers you originally sent us and correlate the invoice back to your own system.\n\n#### `data` object\n\n```\n{\n  \"invoiceUuid\": \"00000000-0000-0000-0000-000000000000\"\n}\n```\n\n* `invoiceUuid` is the identifier for the invoice which was terminated.\n\n### `INVOICE_MATCHED`\n\nThis event is raised whenever an invoice is matched to an order. It is raised in both directions: when an invoice arrives and matches an existing order, and when an order arrives and matches an existing invoice.\n\n#### `data` object\n\n```\n{\n  \"invoiceUuid\": \"00000000-0000-0000-0000-000000000000\",\n  \"orderExternalId\": \"ORD_123\"\n}\n```\n\n* `invoiceUuid` is the identifier for the matched invoice.\n* `orderExternalId` is the order Id as stored in the tenant system outside of Navix. If the order has no external Id, this defaults to the order number.\n\n### `INVOICE_UNMATCHED`\n\nThis event is raised whenever an invoice is unmatched from an order — either because it was fully unmatched, or because it was re-matched to a different order (in which case a corresponding `INVOICE_MATCHED` for the new order follows). Re-matching an invoice to the same order it was already matched to does not raise this event.\n\n#### `data` object\n\n```\n{\n  \"invoiceUuid\": \"00000000-0000-0000-0000-000000000000\",\n  \"orderExternalId\": \"ORD_123\"\n}\n```\n\n* `invoiceUuid` is the identifier for the unmatched invoice.\n* `orderExternalId` is the order Id as stored in the tenant system outside of Navix. If the order has no external Id, this defaults to the order number.\n\n### `INVOICE_EXCEPTIONS_UPDATED`\n\nThis event is raised whenever the exceptions or work instructions on an invoice change.\n\nThe event carries only the invoice identifier. Use the `Get invoice exceptions` endpoint to retrieve the exceptions and work instructions currently open on the invoice. Only open items are returned, so an exception you received previously and no longer see in the response has been resolved.\n\n#### `data` object\n\n```\n{\n  \"invoiceUuid\": \"00000000-0000-0000-0000-000000000000\"\n}\n```\n\n* `invoiceUuid` is the identifier for the invoice whose exceptions may have changed.\n\n### `DISPUTE_CREATED`\n\nThis event is raised whenever a new dispute is created.\n\n#### `data` object\n\n```\n{\n  \"invoiceUuid\": \"00000000-0000-0000-0000-000000000000\",\n  \"disputeUuid\": \"00000000-0000-0000-0000-000000000000\"\n}\n```\n\n* `invoiceUuid` is the identifier for the invoice on which the dispute was created.\n* `disputeUuid` is the identifier for the newly created dispute.\n\n### `DISPUTE_UPDATED`\n\nThis event is raised whenever a dispute is updated. Note that creating and updating are separate events, so this event isn't raised when the dispute is initially created.\n\n#### `data` object\n\n```\n{\n  \"invoiceUuid\": \"00000000-0000-0000-0000-000000000000\",\n  \"disputeUuid\": \"00000000-0000-0000-0000-000000000000\"\n}\n```\n\n* `invoiceUuid` is the identifier for the invoice associated with the dispute that was updated.\n* `disputeUuid` is the identifier for the updated dispute.\n\n### `DISPUTE_COMMUNICATION_CREATED`\n\nThis event is raised whenever a new communication is created on a dispute.\n\nCommunications are immutable, so there's no corresponding webhook for updates to a communication.\n\nNote that whenever a dispute is created, an initial communication is usually created at the same time. It's possible the `DISPUTE_COMMUNICATION_CREATED` webhook will arrive before the `DISPUTE_CREATED` webhook.\n\n#### `data` object\n\n```\n{\n  \"invoiceUuid\": \"00000000-0000-0000-0000-000000000000\",\n  \"disputeUuid\": \"00000000-0000-0000-0000-000000000000\",\n  \"communicationUuid\": \"00000000-0000-0000-0000-000000000000\"\n}\n```\n\n* `invoiceUuid` is the identifier for the invoice associated with the dispute.\n* `disputeUuid` is the identifier for the dispute.\n* `communicationUuid` is the identifier for the created communication.\n\n### `ORDER_APPROVED`\n\nThis event is raised whenever an order is approved.\n\n#### `data` object\n\n```\n{\n  \"orderExternalId\": \"ORD_123\"\n}\n```\n\n* `orderExternalId` is the order Id as stored in the tenant system outside of Navix.\n\n### `DOCUMENT_APPROVED`\n\nThis event is raised whenever a document is approved.\n\n#### `data` object\n\n```\n{\n  \"orderExternalId\": \"ORD_123\",\n  \"documentUuid\": \"00000000-0000-0000-0000-000000000000\"\n}\n```\n\n* `documentUuid` is the identifier for the document as stored in Navix.\n* `orderExternalId` is the order Id as stored in the tenant system outside of Navix.",
       "x-displayName": "Webhooks"
     },
     {
@@ -1214,7 +1219,7 @@
         ],
         "responses": {
           "200": {
-            "description": "A list of disputes",
+            "description": "A list of disputes. Each reason includes `disputeReasonGroupUuid` and `disputeReasonGroupDescription`, which reflect the tenant's CURRENT reason-group configuration (not the assignment at the time the dispute was created). Both fields are null (always together) when the reason cannot be resolved to a group: a renamed or deleted reason configuration (on disputes created before reason-UUID stamping), a free-text reason created via the API that matches no configuration, or a matched reason with no group assigned.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1227,30 +1232,34 @@
                   "DisputeResponseListExample": {
                     "value": [
                       {
-                        "Uuid": "68787aa8-ff3b-4384-8a31-a4d0eeafce46",
+                        "Uuid": "8c7a08b0-f8b0-4c3e-a04d-3b88ba45295e",
                         "ETag": null,
-                        "CreatedAt": "2026-07-11T21:33:28.623889Z",
-                        "ResolvedAt": "2026-07-15T21:33:28.6239058Z",
+                        "CreatedAt": "2026-10-11T13:16:21.2837781Z",
+                        "ResolvedAt": "2026-10-15T13:16:21.2838192Z",
                         "Party": "Tenant",
                         "Reasons": [
                           {
                             "Description": "Approval Required",
-                            "CreatedAt": "2026-07-11T21:33:28.6239513Z",
-                            "ResolvedAt": "2026-07-15T21:33:28.6239775Z"
+                            "CreatedAt": "2026-10-11T13:16:21.2839334Z",
+                            "ResolvedAt": "2026-10-15T13:16:21.2840019Z",
+                            "DisputeReasonGroupUuid": "52a16d5a-e558-40b9-b0bd-e90b4ddfb58d",
+                            "DisputeReasonGroupDescription": "Approvals"
                           }
                         ]
                       },
                       {
-                        "Uuid": "9cd46a89-b3cf-4a6e-9fc3-fb99757965df",
+                        "Uuid": "6e15593d-3002-457a-9b40-442c7bcb417e",
                         "ETag": null,
-                        "CreatedAt": "2026-07-11T21:33:28.6240044Z",
-                        "ResolvedAt": "2026-07-15T21:33:28.6240045Z",
+                        "CreatedAt": "2026-10-11T13:16:21.2841459Z",
+                        "ResolvedAt": "2026-10-15T13:16:21.2841462Z",
                         "Party": "Vendor",
                         "Reasons": [
                           {
                             "Description": "Accessorial Waived",
-                            "CreatedAt": "2026-07-11T21:33:28.6240049Z",
-                            "ResolvedAt": "2026-07-15T21:33:28.6240049Z"
+                            "CreatedAt": "2026-10-11T13:16:21.2841466Z",
+                            "ResolvedAt": "2026-10-15T13:16:21.2841466Z",
+                            "DisputeReasonGroupUuid": null,
+                            "DisputeReasonGroupDescription": null
                           }
                         ]
                       }
@@ -1314,11 +1323,38 @@
         ],
         "responses": {
           "200": {
-            "description": "A single dispute",
+            "description": "A single dispute. Each reason includes `disputeReasonGroupUuid` and `disputeReasonGroupDescription`, which reflect the tenant's CURRENT reason-group configuration (not the assignment at the time the dispute was created). Both fields are null (always together) when the reason cannot be resolved to a group: a renamed or deleted reason configuration (on disputes created before reason-UUID stamping), a free-text reason created via the API that matches no configuration, or a matched reason with no group assigned.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/disputeResponse"
+                },
+                "examples": {
+                  "DisputeResponseExample": {
+                    "value": {
+                      "Uuid": "df6ec9ac-45f3-4dfb-949c-200b708d8bf9",
+                      "ETag": null,
+                      "CreatedAt": "2026-10-11T13:16:21.290529Z",
+                      "ResolvedAt": "2026-10-15T13:16:21.2905294Z",
+                      "Party": "Tenant",
+                      "Reasons": [
+                        {
+                          "Description": "Approval Required",
+                          "CreatedAt": "2026-10-11T13:16:21.2905298Z",
+                          "ResolvedAt": "2026-10-15T13:16:21.2905299Z",
+                          "DisputeReasonGroupUuid": "aa54ea82-fe76-415a-adb9-44d0efd4423d",
+                          "DisputeReasonGroupDescription": "Carrier Rates"
+                        },
+                        {
+                          "Description": "Free-text reason with no matching configuration",
+                          "CreatedAt": "2026-10-11T13:16:21.2905305Z",
+                          "ResolvedAt": null,
+                          "DisputeReasonGroupUuid": null,
+                          "DisputeReasonGroupDescription": null
+                        }
+                      ]
+                    }
+                  }
                 }
               }
             },
@@ -1439,7 +1475,7 @@
           "API v2_Disputes"
         ],
         "summary": "List communications",
-        "description": "This returns the complete list of communications associated with a dispute.\n\nIf a communication was an email, it'll contain an `email` property that includes email-specific fields. If the `email` property isn't present, it indicates the communication was internal to the Navix app and wasn't emailed.\n\nNote that the list is returned in an undefined order.",
+        "description": "This returns the complete list of communications associated with a dispute.\n\nIf a communication was an email, it'll contain an `email` property that includes email-specific fields. If the `email` property isn't present, it indicates the communication was internal to the Navix app and wasn't emailed.\n\nEvery communication also carries `DisputeCreatedByEmail`: the email of the user who created the dispute (not the author of that communication). It is the same on every communication of the dispute, and null for automatically created disputes or when the email can't be resolved.\n\nNote that the list is returned in an undefined order.",
         "operationId": "GetAllCommunications",
         "parameters": [
           {
@@ -1487,8 +1523,8 @@
                   "CommunicationResponseListExample": {
                     "value": [
                       {
-                        "Uuid": "bbef2f66-3734-4f3e-9324-da2aaed70b35",
-                        "CreatedAt": "2026-07-11T21:33:28.6306985Z",
+                        "Uuid": "f188f80b-a1f9-4095-b24c-7994718c3211",
+                        "CreatedAt": "2026-10-11T13:16:21.2968802Z",
                         "Text": "Weight on order did not match invoice, please provide a Weight Certificate or Inspection Certificate for L12345",
                         "Email": {
                           "To": [
@@ -1499,11 +1535,12 @@
                           ],
                           "Subject": "Required Documentation Missing | Load L12345"
                         },
-                        "Attachments": []
+                        "Attachments": [],
+                        "DisputeCreatedByEmail": "auditor-example@navix.io"
                       },
                       {
-                        "Uuid": "6ea909bf-eb1f-4d0c-82c6-3a864d1b224e",
-                        "CreatedAt": "2026-07-12T21:33:28.6308045Z",
+                        "Uuid": "10a30f32-8676-4349-88fe-b2b98df27593",
+                        "CreatedAt": "2026-10-12T13:16:21.2971828Z",
                         "Text": "Please see the attached weight certificate for L12345",
                         "Email": {
                           "To": [
@@ -1516,10 +1553,11 @@
                         },
                         "Attachments": [
                           {
-                            "Identifier": "5f8ccfc5-1978-4c19-aaaf-dbcadf093a99",
+                            "Identifier": "1d866279-ac68-4a84-8959-568f42eff8dd",
                             "FileName": "WeightCertificate-L12345.pdf"
                           }
-                        ]
+                        ],
+                        "DisputeCreatedByEmail": "auditor-example@navix.io"
                       }
                     ]
                   }
@@ -1677,7 +1715,7 @@
           "API v2_Vendors"
         ],
         "summary": "Create or update a vendor",
-        "description": "Upserts a vendor based on its external ID — creates it if new, updates it if it already exists. Warning: metadata is fully replaced on each PUT; if metadata is omitted, any existing metadata is cleared. Use PATCH /v2/vendors/{externalId}/metadata for selective updates.",
+        "description": "Upserts a vendor based on its external ID — creates it if new, updates it if it already exists. Warning: metadata is fully replaced on each PUT; if metadata is omitted, any existing metadata is cleared. Use PATCH /v2/vendors/{externalId}/metadata for selective updates. The contacts and addresses collections are also replaced in full, but follow a different omitted-versus-empty rule: a collection that is sent is the complete set and replaces everything Navix holds, an empty array clears the collection, and a collection that is omitted (or sent as null) leaves the existing children untouched.",
         "operationId": "UpsertVendor",
         "parameters": [
           {
@@ -2226,6 +2264,78 @@
         ]
       }
     },
+    "/v2/invoices/{invoiceUuid}/exceptions": {
+      "get": {
+        "tags": [
+          "API v2_Invoices"
+        ],
+        "summary": "Get invoice exceptions",
+        "description": "This returns the exceptions and work instructions currently open on an invoice.\n\nResolved items are not returned, so an item that is no longer present has been resolved.\n\nOnly exceptions raised by Flex rules are returned, along with internal Navix errors.",
+        "operationId": "InvoiceExceptionsGet",
+        "parameters": [
+          {
+            "name": "invoiceUuid",
+            "in": "path",
+            "description": "(Required) The invoice UUID.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Tenant-Uuid",
+            "in": "header",
+            "description": "(Required) Your tenant UUID.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The invoice's open exceptions and work instructions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/invoiceExceptionsPublicDto"
+                }
+              }
+            },
+            "x-ms-summary": "The invoice's open exceptions and work instructions."
+          },
+          "400": {
+            "description": "A detailed description of the error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/badRequestResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Invalid Invoice"
+          },
+          "401": {
+            "description": "No description"
+          },
+          "403": {
+            "description": "No description"
+          },
+          "404": {
+            "description": "No description"
+          },
+          "500": {
+            "description": "No description"
+          }
+        },
+        "security": [
+          {
+            "x-api-key": []
+          }
+        ]
+      }
+    },
     "/v2/customers/{externalId}": {
       "get": {
         "tags": [
@@ -2284,7 +2394,7 @@
           "API v2_Customers"
         ],
         "summary": "Create or update a customer",
-        "description": "Upserts a customer based on its external ID — creates it if new, updates it if it already exists. Warning: metadata is fully replaced on each PUT; if metadata is omitted, any existing metadata is cleared. Use PATCH /v2/customers/{externalId}/metadata for selective updates.",
+        "description": "Upserts a customer based on its external ID — creates it if new, updates it if it already exists. Warning: metadata is fully replaced on each PUT; if metadata is omitted, any existing metadata is cleared. Use PATCH /v2/customers/{externalId}/metadata for selective updates. The contacts and addresses collections are also replaced in full, but follow a different omitted-versus-empty rule: a collection that is sent is the complete set and replaces everything Navix holds, an empty array clears the collection, and a collection that is omitted (or sent as null) leaves the existing children untouched.",
         "operationId": "UpsertCustomer",
         "parameters": [
           {
@@ -2570,7 +2680,8 @@
           "SONumber",
           "GeneralReferenceNumber",
           "ShipmentNumber",
-          "ExternalInvoiceId"
+          "ExternalInvoiceId",
+          "GLCode"
         ],
         "type": "string"
       },
@@ -2867,7 +2978,7 @@
         "properties": {
           "type": {
             "type": "string",
-            "description": "The type of this reference number. Possible values include:\r\n* `OrderNumber`\r\n* `BOLNumber`\r\n* `PONumber`\r\n* `SONumber`\r\n* `GeneralReferenceNumber`\r\n* `ShipmentNumber`",
+            "description": "The type of this reference number. Possible values include:\r\n* `OrderNumber`\r\n* `BOLNumber`\r\n* `PONumber`\r\n* `SONumber`\r\n* `GeneralReferenceNumber`\r\n* `ShipmentNumber`\r\n* `GLCode`",
             "nullable": true
           },
           "number": {
@@ -2996,7 +3107,7 @@
         "properties": {
           "type": {
             "type": "string",
-            "description": "The type of this reference number. Possible values include:\r\n* `BOLNumber`\r\n* `PONumber`\r\n* `SONumber`\r\n* `GeneralReferenceNumber`\r\n* `ShipmentNumber`",
+            "description": "The type of this reference number. Possible values include:\r\n* `BOLNumber`\r\n* `PONumber`\r\n* `SONumber`\r\n* `GeneralReferenceNumber`\r\n* `ShipmentNumber`\r\n* `GLCode`",
             "nullable": true
           },
           "number": {
@@ -3816,6 +3927,9 @@
             },
             "description": "Payment records associated with this invoice.",
             "nullable": true
+          },
+          "service": {
+            "$ref": "#/components/schemas/Invoice.Models.Integrations.InvoiceAuditResultServiceV2"
           }
         },
         "additionalProperties": false
@@ -3889,7 +4003,7 @@
         "properties": {
           "type": {
             "type": "string",
-            "description": "The type of reference number.  Possible values include:\r\n* `OrderNumber`\r\n* `BOLNumber`\r\n* `PONumber`\r\n* `SONumber`\r\n* `GeneralReferenceNumber`\r\n* `ShipmentNumber`",
+            "description": "The type of reference number.  Possible values include:\r\n* `OrderNumber`\r\n* `BOLNumber`\r\n* `PONumber`\r\n* `SONumber`\r\n* `GeneralReferenceNumber`\r\n* `ShipmentNumber`\r\n* `GLCode`",
             "nullable": true,
             "example": "ShipmentNumber"
           },
@@ -3965,7 +4079,7 @@
         "properties": {
           "type": {
             "type": "string",
-            "description": "The type of reference number. Possible values include:\r\n* `BOLNumber`\r\n* `PONumber`\r\n* `SONumber`\r\n* `GeneralReferenceNumber`\r\n* `ShipmentNumber`",
+            "description": "The type of reference number. Possible values include:\r\n* `BOLNumber`\r\n* `PONumber`\r\n* `SONumber`\r\n* `GeneralReferenceNumber`\r\n* `ShipmentNumber`\r\n* `GLCode`",
             "nullable": true,
             "example": "ShipmentNumber"
           },
@@ -4100,6 +4214,24 @@
         },
         "additionalProperties": false,
         "description": "Payment record associated with an invoice."
+      },
+      "Invoice.Models.Integrations.InvoiceAuditResultServiceV2": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "description": "The transportation mode of the invoice. Possible values are:\r\n* `Ground`\r\n* `Air`\r\n* `Non-Freight`\r\n* `Ocean`\r\n* `Rail`",
+            "nullable": true,
+            "example": "Ground"
+          },
+          "type": {
+            "type": "string",
+            "description": "The service type of the invoice. Possible values are:\r\n* `LTL`\r\n* `TL`\r\n* `Parcel`\r\n* `Expedited`\r\n* `Air`\r\n* `Cartage`\r\n* `Drayage`\r\n* `Guaranteed`\r\n* `Intermodal`\r\n* `Warehouse`\r\n* `4PL`\r\n* `Ocean`\r\n* `Rail`\r\n* `Service`\r\n* `Shuttle`",
+            "nullable": true,
+            "example": "LTL"
+          }
+        },
+        "additionalProperties": false
       },
       "Invoice.Models.Integrations.InvoiceAuditResultStopAddressV2": {
         "type": "object",
@@ -4395,6 +4527,733 @@
               "$ref": "#/components/schemas/communicationAttachmentResponse"
             },
             "description": "A list of attachments on the communication"
+          },
+          "disputeCreatedByEmail": {
+            "type": "string",
+            "description": "The email of the user who created the dispute, not the author of this communication. It is the same on every communication of the dispute, and null for automatically created disputes or when the email can't be resolved",
+            "nullable": true
+          }
+        }
+      },
+      "customerAddressRequest": {
+        "required": [
+          "addressName"
+        ],
+        "type": "object",
+        "properties": {
+          "addressName": {
+            "maxLength": 255,
+            "minLength": 0,
+            "type": "string",
+            "description": "(Required) A name identifying this address, such as 'Chicago DC'. Maximum 255 characters."
+          },
+          "address1": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string",
+            "description": "The street address.",
+            "nullable": true
+          },
+          "address2": {
+            "maxLength": 250,
+            "minLength": 1,
+            "type": "string",
+            "description": "The street address (continued).",
+            "nullable": true
+          },
+          "city": {
+            "maxLength": 50,
+            "minLength": 1,
+            "type": "string",
+            "description": "The city.",
+            "nullable": true
+          },
+          "state": {
+            "maxLength": 3,
+            "minLength": 1,
+            "type": "string",
+            "description": "The two or three character ISO 3166-2 code for the state or province.",
+            "nullable": true
+          },
+          "zip": {
+            "maxLength": 15,
+            "minLength": 1,
+            "type": "string",
+            "description": "The five digit or six character postal code.",
+            "nullable": true
+          },
+          "zip4": {
+            "maxLength": 4,
+            "minLength": 1,
+            "type": "string",
+            "description": "The four-digit ZIP+4 extension, without the leading hyphen.",
+            "nullable": true
+          },
+          "country": {
+            "enum": [
+              "USA",
+              "CAN",
+              "MEX",
+              "AFG",
+              "ALB",
+              "DZA",
+              "ASM",
+              "AND",
+              "AGO",
+              "AIA",
+              "ATA",
+              "ATG",
+              "ARG",
+              "ARM",
+              "ABW",
+              "AUS",
+              "AUT",
+              "AZE",
+              "BHS",
+              "BHR",
+              "BGD",
+              "BRB",
+              "BLR",
+              "BEL",
+              "BLZ",
+              "BEN",
+              "BMU",
+              "BTN",
+              "BOL",
+              "BES",
+              "BIH",
+              "BWA",
+              "BVT",
+              "BRA",
+              "IOT",
+              "BRN",
+              "BGR",
+              "BFA",
+              "BDI",
+              "CPV",
+              "KHM",
+              "CMR",
+              "CYM",
+              "CAF",
+              "TCD",
+              "CHL",
+              "CHN",
+              "CXR",
+              "CCK",
+              "COL",
+              "COM",
+              "COD",
+              "COG",
+              "COK",
+              "CRI",
+              "HRV",
+              "CUB",
+              "CUW",
+              "CYP",
+              "CZE",
+              "CIV",
+              "DNK",
+              "DJI",
+              "DMA",
+              "DOM",
+              "ECU",
+              "EGY",
+              "SLV",
+              "GNQ",
+              "ERI",
+              "EST",
+              "SWZ",
+              "ETH",
+              "FLK",
+              "FRO",
+              "FJI",
+              "FIN",
+              "FRA",
+              "GUF",
+              "PYF",
+              "ATF",
+              "GAB",
+              "GMB",
+              "GEO",
+              "DEU",
+              "GHA",
+              "GIB",
+              "GRC",
+              "GRL",
+              "GRD",
+              "GLP",
+              "GUM",
+              "GTM",
+              "GGY",
+              "GIN",
+              "GNB",
+              "GUY",
+              "HTI",
+              "HMD",
+              "VAT",
+              "HND",
+              "HKG",
+              "HUN",
+              "ISL",
+              "IND",
+              "IDN",
+              "IRN",
+              "IRQ",
+              "IRL",
+              "IMN",
+              "ISR",
+              "ITA",
+              "JAM",
+              "JPN",
+              "JEY",
+              "JOR",
+              "KAZ",
+              "KEN",
+              "KIR",
+              "PRK",
+              "KOR",
+              "KWT",
+              "KGZ",
+              "LAO",
+              "LVA",
+              "LBN",
+              "LSO",
+              "LBR",
+              "LBY",
+              "LIE",
+              "LTU",
+              "LUX",
+              "MAC",
+              "MDG",
+              "MWI",
+              "MYS",
+              "MDV",
+              "MLI",
+              "MLT",
+              "MHL",
+              "MTQ",
+              "MRT",
+              "MUS",
+              "MYT",
+              "FSM",
+              "MDA",
+              "MCO",
+              "MNG",
+              "MNE",
+              "MSR",
+              "MAR",
+              "MOZ",
+              "MMR",
+              "NAM",
+              "NRU",
+              "NPL",
+              "NLD",
+              "NCL",
+              "NZL",
+              "NIC",
+              "NER",
+              "NGA",
+              "NIU",
+              "NFK",
+              "MNP",
+              "NOR",
+              "OMN",
+              "PAK",
+              "PLW",
+              "PSE",
+              "PAN",
+              "PNG",
+              "PRY",
+              "PER",
+              "PHL",
+              "PCN",
+              "POL",
+              "PRT",
+              "PRI",
+              "QAT",
+              "MKD",
+              "ROU",
+              "RUS",
+              "RWA",
+              "REU",
+              "BLM",
+              "SHN",
+              "KNA",
+              "LCA",
+              "MAF",
+              "SPM",
+              "VCT",
+              "WSM",
+              "SMR",
+              "STP",
+              "SAU",
+              "SEN",
+              "SRB",
+              "SYC",
+              "SLE",
+              "SGP",
+              "SXM",
+              "SVK",
+              "SVN",
+              "SLB",
+              "SOM",
+              "ZAF",
+              "SGS",
+              "SSD",
+              "ESP",
+              "LKA",
+              "SDN",
+              "SUR",
+              "SJM",
+              "SWE",
+              "CHE",
+              "SYR",
+              "TWN",
+              "TJK",
+              "TZA",
+              "THA",
+              "TLS",
+              "TGO",
+              "TKL",
+              "TON",
+              "TTO",
+              "TUN",
+              "TUR",
+              "TKM",
+              "TCA",
+              "TUV",
+              "UGA",
+              "UKR",
+              "ARE",
+              "GBR",
+              "UMI",
+              "URY",
+              "UZB",
+              "VUT",
+              "VEN",
+              "VNM",
+              "VGB",
+              "VIR",
+              "WLF",
+              "ESH",
+              "YEM",
+              "ZMB",
+              "ZWE"
+            ],
+            "type": "string",
+            "description": "The three character ISO 3166-1 alpha 3 code for the country.",
+            "nullable": true
+          },
+          "isPrimary": {
+            "type": "boolean",
+            "description": "Whether this is the primary address. At most one may be flagged; sending several is a 400. A single address is treated as primary even when not flagged."
+          },
+          "addressType": {
+            "enum": [
+              "Headquarters",
+              "ManufacturingFacility",
+              "Warehouse",
+              "BillTo"
+            ],
+            "type": "string",
+            "description": "What this address is used for. Omit it to leave the address untyped.",
+            "nullable": true
+          }
+        }
+      },
+      "customerAddressResponse": {
+        "type": "object",
+        "properties": {
+          "addressName": {
+            "type": "string",
+            "description": "A name identifying this address, such as 'Chicago DC'."
+          },
+          "address1": {
+            "type": "string",
+            "description": "Address line 1.",
+            "nullable": true
+          },
+          "address2": {
+            "type": "string",
+            "description": "Address line 2.",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "description": "City.",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "description": "State or province code.",
+            "nullable": true
+          },
+          "zip": {
+            "type": "string",
+            "description": "Postal code.",
+            "nullable": true
+          },
+          "zip4": {
+            "type": "string",
+            "description": "The four-digit ZIP+4 extension.",
+            "nullable": true
+          },
+          "country": {
+            "enum": [
+              "USA",
+              "CAN",
+              "MEX",
+              "AFG",
+              "ALB",
+              "DZA",
+              "ASM",
+              "AND",
+              "AGO",
+              "AIA",
+              "ATA",
+              "ATG",
+              "ARG",
+              "ARM",
+              "ABW",
+              "AUS",
+              "AUT",
+              "AZE",
+              "BHS",
+              "BHR",
+              "BGD",
+              "BRB",
+              "BLR",
+              "BEL",
+              "BLZ",
+              "BEN",
+              "BMU",
+              "BTN",
+              "BOL",
+              "BES",
+              "BIH",
+              "BWA",
+              "BVT",
+              "BRA",
+              "IOT",
+              "BRN",
+              "BGR",
+              "BFA",
+              "BDI",
+              "CPV",
+              "KHM",
+              "CMR",
+              "CYM",
+              "CAF",
+              "TCD",
+              "CHL",
+              "CHN",
+              "CXR",
+              "CCK",
+              "COL",
+              "COM",
+              "COD",
+              "COG",
+              "COK",
+              "CRI",
+              "HRV",
+              "CUB",
+              "CUW",
+              "CYP",
+              "CZE",
+              "CIV",
+              "DNK",
+              "DJI",
+              "DMA",
+              "DOM",
+              "ECU",
+              "EGY",
+              "SLV",
+              "GNQ",
+              "ERI",
+              "EST",
+              "SWZ",
+              "ETH",
+              "FLK",
+              "FRO",
+              "FJI",
+              "FIN",
+              "FRA",
+              "GUF",
+              "PYF",
+              "ATF",
+              "GAB",
+              "GMB",
+              "GEO",
+              "DEU",
+              "GHA",
+              "GIB",
+              "GRC",
+              "GRL",
+              "GRD",
+              "GLP",
+              "GUM",
+              "GTM",
+              "GGY",
+              "GIN",
+              "GNB",
+              "GUY",
+              "HTI",
+              "HMD",
+              "VAT",
+              "HND",
+              "HKG",
+              "HUN",
+              "ISL",
+              "IND",
+              "IDN",
+              "IRN",
+              "IRQ",
+              "IRL",
+              "IMN",
+              "ISR",
+              "ITA",
+              "JAM",
+              "JPN",
+              "JEY",
+              "JOR",
+              "KAZ",
+              "KEN",
+              "KIR",
+              "PRK",
+              "KOR",
+              "KWT",
+              "KGZ",
+              "LAO",
+              "LVA",
+              "LBN",
+              "LSO",
+              "LBR",
+              "LBY",
+              "LIE",
+              "LTU",
+              "LUX",
+              "MAC",
+              "MDG",
+              "MWI",
+              "MYS",
+              "MDV",
+              "MLI",
+              "MLT",
+              "MHL",
+              "MTQ",
+              "MRT",
+              "MUS",
+              "MYT",
+              "FSM",
+              "MDA",
+              "MCO",
+              "MNG",
+              "MNE",
+              "MSR",
+              "MAR",
+              "MOZ",
+              "MMR",
+              "NAM",
+              "NRU",
+              "NPL",
+              "NLD",
+              "NCL",
+              "NZL",
+              "NIC",
+              "NER",
+              "NGA",
+              "NIU",
+              "NFK",
+              "MNP",
+              "NOR",
+              "OMN",
+              "PAK",
+              "PLW",
+              "PSE",
+              "PAN",
+              "PNG",
+              "PRY",
+              "PER",
+              "PHL",
+              "PCN",
+              "POL",
+              "PRT",
+              "PRI",
+              "QAT",
+              "MKD",
+              "ROU",
+              "RUS",
+              "RWA",
+              "REU",
+              "BLM",
+              "SHN",
+              "KNA",
+              "LCA",
+              "MAF",
+              "SPM",
+              "VCT",
+              "WSM",
+              "SMR",
+              "STP",
+              "SAU",
+              "SEN",
+              "SRB",
+              "SYC",
+              "SLE",
+              "SGP",
+              "SXM",
+              "SVK",
+              "SVN",
+              "SLB",
+              "SOM",
+              "ZAF",
+              "SGS",
+              "SSD",
+              "ESP",
+              "LKA",
+              "SDN",
+              "SUR",
+              "SJM",
+              "SWE",
+              "CHE",
+              "SYR",
+              "TWN",
+              "TJK",
+              "TZA",
+              "THA",
+              "TLS",
+              "TGO",
+              "TKL",
+              "TON",
+              "TTO",
+              "TUN",
+              "TUR",
+              "TKM",
+              "TCA",
+              "TUV",
+              "UGA",
+              "UKR",
+              "ARE",
+              "GBR",
+              "UMI",
+              "URY",
+              "UZB",
+              "VUT",
+              "VEN",
+              "VNM",
+              "VGB",
+              "VIR",
+              "WLF",
+              "ESH",
+              "YEM",
+              "ZMB",
+              "ZWE"
+            ],
+            "type": "string",
+            "description": "The three character ISO 3166-1 alpha 3 code for the country.",
+            "nullable": true
+          },
+          "isPrimary": {
+            "type": "boolean",
+            "description": "Whether this is the customer's primary address."
+          },
+          "addressType": {
+            "enum": [
+              "Headquarters",
+              "ManufacturingFacility",
+              "Warehouse",
+              "BillTo"
+            ],
+            "type": "string",
+            "description": "What this address is used for. Null when the address has no type.",
+            "nullable": true
+          }
+        }
+      },
+      "customerContactRequest": {
+        "required": [
+          "contactName"
+        ],
+        "type": "object",
+        "properties": {
+          "contactName": {
+            "maxLength": 256,
+            "minLength": 0,
+            "type": "string",
+            "description": "(Required) The contact's name. Maximum 256 characters."
+          },
+          "contactPhone": {
+            "maxLength": 50,
+            "minLength": 1,
+            "type": "string",
+            "description": "The contact's phone number. Maximum 50 characters.",
+            "format": "tel",
+            "nullable": true
+          },
+          "contactEmail": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string",
+            "description": "The contact's email address. Maximum 256 characters.",
+            "format": "email",
+            "nullable": true
+          },
+          "department": {
+            "enum": [
+              "AccountsPayable",
+              "AccountsReceivable",
+              "Receiving",
+              "Shipping"
+            ],
+            "type": "string",
+            "description": "The contact's department.",
+            "nullable": true
+          },
+          "isPrimary": {
+            "type": "boolean",
+            "description": "Whether this is the primary contact. At most one may be flagged; sending several is a 400. A single contact is treated as primary even when not flagged."
+          },
+          "isDisputeContact": {
+            "type": "boolean",
+            "description": "Whether this contact receives automated dispute communications. Any number may be flagged. Contacts are replaced wholesale, so a contact sent without this stops receiving them."
+          }
+        }
+      },
+      "customerContactResponse": {
+        "type": "object",
+        "properties": {
+          "contactName": {
+            "type": "string",
+            "description": "The contact's name."
+          },
+          "contactPhone": {
+            "type": "string",
+            "description": "The contact's phone number.",
+            "nullable": true
+          },
+          "contactEmail": {
+            "type": "string",
+            "description": "The contact's email address.",
+            "nullable": true
+          },
+          "department": {
+            "enum": [
+              "AccountsPayable",
+              "AccountsReceivable",
+              "Receiving",
+              "Shipping"
+            ],
+            "type": "string",
+            "description": "The contact's department.",
+            "nullable": true
+          },
+          "isPrimary": {
+            "type": "boolean",
+            "description": "Whether this is the customer's primary contact."
+          },
+          "isDisputeContact": {
+            "type": "boolean",
+            "description": "Whether this contact receives automated dispute communications."
           }
         }
       },
@@ -4402,10 +5261,13 @@
         "type": "object",
         "properties": {
           "externalId": {
-            "type": "string"
+            "type": "string",
+            "description": "An ID used by the API consumer's system, such as the ID in the TMS."
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "The name of the customer.",
+            "nullable": true
           },
           "billingTerms": {
             "enum": [
@@ -4778,19 +5640,28 @@
               "Prepaid"
             ],
             "type": "string",
-            "default": "Net0",
+            "description": "The billing term for the customer (e.g. 'Net30').",
             "nullable": true
           },
           "currency": {
-            "type": "string"
+            "enum": [
+              "USD",
+              "CAD",
+              "MXN"
+            ],
+            "type": "string",
+            "description": "The customer's currency. Core accepts USD, CAD and MXN.",
+            "nullable": true
           },
           "startDate": {
             "type": "string",
+            "description": "The start date of the customer.",
             "format": "date-time",
             "nullable": true
           },
           "endDate": {
             "type": "string",
+            "description": "The end date of the customer.",
             "format": "date-time",
             "nullable": true
           },
@@ -4798,31 +5669,66 @@
             "type": "object",
             "additionalProperties": {
               "$ref": "#/components/schemas/dictionary_string"
-            }
+            },
+            "description": "Tenant-managed metadata, keyed group => key => value.",
+            "nullable": true
+          },
+          "contacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/customerContactResponse"
+            },
+            "description": "Every contact Navix holds for the customer. Always present — an empty array when the customer has no contacts."
+          },
+          "addresses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/customerAddressResponse"
+            },
+            "description": "Every address Navix holds for the customer. Always present — an empty array when the customer has no addresses."
           }
         }
       },
       "customerUpsertRequest": {
+        "required": [
+          "externalId"
+        ],
         "type": "object",
         "properties": {
           "externalId": {
-            "type": "string"
+            "maxLength": 450,
+            "minLength": 0,
+            "type": "string",
+            "description": "(Required) An ID used by the API consumer's system, such as the ID in the TMS."
           },
           "name": {
-            "type": "string"
+            "maxLength": 255,
+            "minLength": 0,
+            "type": "string",
+            "description": "The name of the customer.",
+            "nullable": true
           },
           "startDate": {
             "type": "string",
+            "description": "Optional start date; defaults to the tenant's DefaultCustomerStartDate when omitted.",
             "format": "date-time",
             "nullable": true
           },
           "endDate": {
             "type": "string",
+            "description": "Optional end date.",
             "format": "date-time",
             "nullable": true
           },
           "currency": {
-            "type": "string"
+            "enum": [
+              "USD",
+              "CAD",
+              "MXN"
+            ],
+            "type": "string",
+            "description": "The customer's currency, one of USD, CAD or MXN. Defaults to USD when omitted.",
+            "nullable": true
           },
           "billingTerms": {
             "enum": [
@@ -5195,14 +6101,34 @@
               "Prepaid"
             ],
             "type": "string",
-            "default": "Net0",
+            "description": "Billing term (e.g. 'Net30'). Defaults to 'Net30'. Possible values are Net0-Net365 and Prepaid.",
             "nullable": true
           },
           "metadata": {
             "type": "object",
             "additionalProperties": {
               "$ref": "#/components/schemas/dictionary_string"
-            }
+            },
+            "description": "Tenant-managed metadata, keyed group => key => value. On a PUT this fully replaces the customer's stored metadata — use PATCH /v2/customers/{externalId}/metadata for selective updates.",
+            "nullable": true
+          },
+          "contacts": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/customerContactRequest"
+            },
+            "description": "The complete set of contacts. Replaces every contact Navix holds; an empty array clears them, and omitting the field leaves them untouched. At most 100 per request.",
+            "nullable": true
+          },
+          "addresses": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/customerAddressRequest"
+            },
+            "description": "The complete set of addresses. Replaces every address Navix holds; an empty array clears them, and omitting the field leaves them untouched. At most 100 per request.",
+            "nullable": true
           }
         }
       },
@@ -5228,6 +6154,17 @@
             "type": "string",
             "description": "The date on which the dispute reason was resolved. The dispute is considered resolved when all dispute reasons have been resolved. Null for an unresolved dispute reason",
             "format": "date-time"
+          },
+          "disputeReasonGroupUuid": {
+            "type": "string",
+            "description": "The UUID of the dispute reason group this reason's configured reason belongs to. Reflects the tenant's CURRENT reason-group configuration (not the assignment at the time the dispute was created). Null when the group cannot be resolved (see disputeReasonGroupDescription). Always paired with disputeReasonGroupDescription: both are present and non-null, or both are null.",
+            "format": "uuid",
+            "nullable": true
+          },
+          "disputeReasonGroupDescription": {
+            "type": "string",
+            "description": "The human-readable description of the dispute reason group. Reflects the tenant's CURRENT reason-group configuration. Null when the group cannot be resolved: the reason's configuration was renamed or deleted (on disputes created before reason-UUID stamping), the reason was created free-text via the API and matches no configuration, or the matched reason has no group assigned. Always paired with disputeReasonGroupUuid.",
+            "nullable": true
           }
         }
       },
@@ -5271,16 +6208,25 @@
           }
         },
         "example": {
-          "Uuid": "0570918b-1a12-4d64-9fcf-c65b09753916",
+          "Uuid": "873a18cd-19a4-4f28-beb8-bb488099bf62",
           "ETag": null,
-          "CreatedAt": "2026-07-11T21:33:28.752865Z",
-          "ResolvedAt": "2026-07-15T21:33:28.7528657Z",
+          "CreatedAt": "2026-10-11T13:16:21.438169Z",
+          "ResolvedAt": "2026-10-15T13:16:21.4381699Z",
           "Party": "Tenant",
           "Reasons": [
             {
               "Description": "Approval Required",
-              "CreatedAt": "2026-07-11T21:33:28.7528665Z",
-              "ResolvedAt": "2026-07-15T21:33:28.7528666Z"
+              "CreatedAt": "2026-10-11T13:16:21.4381704Z",
+              "ResolvedAt": "2026-10-15T13:16:21.4381705Z",
+              "DisputeReasonGroupUuid": "2b207642-55be-4e29-9978-c93fd86eb787",
+              "DisputeReasonGroupDescription": "Carrier Rates"
+            },
+            {
+              "Description": "Free-text reason with no matching configuration",
+              "CreatedAt": "2026-10-11T13:16:21.4381726Z",
+              "ResolvedAt": null,
+              "DisputeReasonGroupUuid": null,
+              "DisputeReasonGroupDescription": null
             }
           ]
         }
@@ -5542,12 +6488,12 @@
           }
         },
         "example": {
-          "Uuid": "fd245ce2-a0ed-4815-aa62-42290fb5bd9c",
+          "Uuid": "b699d003-ad85-4cc3-9256-fe183037c2e2",
           "OrderExternalId": "ORD_123",
           "Type": "BillOfLading",
           "Status": "Approved",
           "HasSignature": true,
-          "ApprovedAt": "2026-07-16T21:33:28.7490736Z",
+          "ApprovedAt": "2026-10-16T13:16:21.4343749Z",
           "ApprovedBy": "john.smith@freight.com",
           "Filename": "BOL.pdf",
           "OrderStopSequence": 2
@@ -6019,6 +6965,67 @@
           }
         }
       },
+      "invoiceExceptionItemPublicDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "The exception's type. A display label whose wording can change; do not branch on it.",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the rule that raised the exception, as shown in Navix.",
+            "nullable": true
+          },
+          "category": {
+            "type": "string",
+            "description": "The exception's category. A display label whose wording can change; do not branch on it.",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "description": "The exception message, as shown in Navix.",
+            "nullable": true
+          },
+          "isApprovalBlocking": {
+            "type": "boolean",
+            "description": "Whether this exception prevents the invoice from being approved."
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "When the exception was first raised.",
+            "format": "date-time",
+            "nullable": true
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The tags set on the Flex rule node that raised this exception, as entered by the rule author. Free text that can change when the rule is edited; reflects the latest rule run. Empty when the node has no tags. These are not the rule's own tags."
+          }
+        }
+      },
+      "invoiceExceptionsPublicDto": {
+        "type": "object",
+        "properties": {
+          "exceptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/invoiceExceptionItemPublicDto"
+            },
+            "description": "The exceptions currently open on the invoice. An exception that is no longer present has been resolved."
+          },
+          "workInstructions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/invoiceWorkInstructionItemPublicDto"
+            },
+            "description": "The work instructions currently open on the invoice. Attesting a work instruction does not resolve it, so an attested work instruction still appears here."
+          }
+        }
+      },
       "invoiceItemDimensionRequest": {
         "type": "object",
         "properties": {
@@ -6032,35 +7039,35 @@
             "default": "Imperial"
           },
           "weight": {
-            "maximum": 7.922816251426434e+28,
+            "maximum": 7.922816251426434E+28,
             "minimum": 0,
             "type": "number",
             "description": "Weight",
             "format": "double"
           },
           "volume": {
-            "maximum": 7.922816251426434e+28,
+            "maximum": 7.922816251426434E+28,
             "minimum": 0,
             "type": "number",
             "description": "Volume",
             "format": "double"
           },
           "height": {
-            "maximum": 7.922816251426434e+28,
+            "maximum": 7.922816251426434E+28,
             "minimum": 0,
             "type": "number",
             "description": "Height",
             "format": "double"
           },
           "length": {
-            "maximum": 7.922816251426434e+28,
+            "maximum": 7.922816251426434E+28,
             "minimum": 0,
             "type": "number",
             "description": "Length",
             "format": "double"
           },
           "width": {
-            "maximum": 7.922816251426434e+28,
+            "maximum": 7.922816251426434E+28,
             "minimum": 0,
             "type": "number",
             "description": "Width",
@@ -6176,7 +7183,8 @@
               "BOLNumber",
               "PONumber",
               "SONumber",
-              "ShipmentNumber"
+              "ShipmentNumber",
+              "GLCode"
             ],
             "type": "string",
             "description": "The Reference Number type. Defaults to 'GeneralReferenceNumber' when empty.",
@@ -7000,6 +8008,54 @@
             "minLength": 0,
             "type": "string",
             "description": "The MC Number for the Vendor."
+          }
+        }
+      },
+      "invoiceWorkInstructionItemPublicDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The name of the rule that raised the work instruction, as shown in Navix.",
+            "nullable": true
+          },
+          "category": {
+            "type": "string",
+            "description": "The work instruction's category. A display label whose wording can change; do not branch on it.",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "description": "The work instruction message, as shown in Navix.",
+            "nullable": true
+          },
+          "isApprovalBlocking": {
+            "type": "boolean",
+            "description": "Whether this work instruction prevents the invoice from being approved."
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "When the work instruction was first raised.",
+            "format": "date-time",
+            "nullable": true
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The tags set on the Flex rule node that raised this work instruction, as entered by the rule author. Free text that can change when the rule is edited; reflects the latest rule run. Empty when the node has no tags. These are not the rule's own tags."
+          },
+          "attestedAt": {
+            "type": "string",
+            "description": "When the work instruction was attested. Null when it has not been attested.",
+            "format": "date-time",
+            "nullable": true
+          },
+          "attestedBy": {
+            "type": "string",
+            "description": "The email of the user who attested the work instruction. Null when it has not been attested.",
+            "nullable": true
           }
         }
       },
@@ -8042,7 +9098,8 @@
               "BOLNumber",
               "PONumber",
               "SONumber",
-              "ShipmentNumber"
+              "ShipmentNumber",
+              "GLCode"
             ],
             "type": "string",
             "description": "The Reference Number type. Defaults to 'GeneralReferenceNumber' when empty.",
@@ -8163,8 +9220,8 @@
         "example": {
           "OrderNumber": "123456-789",
           "ExternalId": "123456-789",
-          "ShipDate": "2026-07-15T21:33:28.6769981Z",
-          "DeliveryDate": "2026-07-16T21:33:28.6770148Z",
+          "ShipDate": "2026-10-15T13:16:21.3513665Z",
+          "DeliveryDate": "2026-10-16T13:16:21.3514034Z",
           "Stops": [
             {
               "Type": "Origin",
@@ -8405,7 +9462,7 @@
           "Metadata": {
             "AnyValue": {
               "ForInstanceATrackingNumber": "123-789",
-              "OrAnything": "2026-07-16"
+              "OrAnything": "2026-10-16"
             },
             "SomeOtherValue": {
               "sample1": "value1"
@@ -9236,6 +10293,726 @@
           }
         }
       },
+      "vendorAddressRequest": {
+        "required": [
+          "addressName"
+        ],
+        "type": "object",
+        "properties": {
+          "addressName": {
+            "maxLength": 255,
+            "minLength": 0,
+            "type": "string",
+            "description": "(Required) A name identifying this address, such as 'Dallas Terminal'. Maximum 255 characters."
+          },
+          "address1": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string",
+            "description": "Address line 1. Maximum 100 characters.",
+            "nullable": true
+          },
+          "address2": {
+            "maxLength": 250,
+            "minLength": 1,
+            "type": "string",
+            "description": "Address line 2. Maximum 250 characters.",
+            "nullable": true
+          },
+          "city": {
+            "maxLength": 50,
+            "minLength": 1,
+            "type": "string",
+            "description": "City. Maximum 50 characters.",
+            "nullable": true
+          },
+          "state": {
+            "maxLength": 3,
+            "minLength": 1,
+            "type": "string",
+            "description": "State or province code. Maximum 3 characters.",
+            "nullable": true
+          },
+          "zip": {
+            "maxLength": 15,
+            "minLength": 1,
+            "type": "string",
+            "description": "Postal code. Maximum 15 characters.",
+            "nullable": true
+          },
+          "zip4": {
+            "maxLength": 4,
+            "minLength": 1,
+            "type": "string",
+            "description": "The four-digit ZIP+4 extension, without the leading hyphen. Maximum 4 characters.",
+            "nullable": true
+          },
+          "country": {
+            "enum": [
+              "USA",
+              "CAN",
+              "MEX",
+              "AFG",
+              "ALB",
+              "DZA",
+              "ASM",
+              "AND",
+              "AGO",
+              "AIA",
+              "ATA",
+              "ATG",
+              "ARG",
+              "ARM",
+              "ABW",
+              "AUS",
+              "AUT",
+              "AZE",
+              "BHS",
+              "BHR",
+              "BGD",
+              "BRB",
+              "BLR",
+              "BEL",
+              "BLZ",
+              "BEN",
+              "BMU",
+              "BTN",
+              "BOL",
+              "BES",
+              "BIH",
+              "BWA",
+              "BVT",
+              "BRA",
+              "IOT",
+              "BRN",
+              "BGR",
+              "BFA",
+              "BDI",
+              "CPV",
+              "KHM",
+              "CMR",
+              "CYM",
+              "CAF",
+              "TCD",
+              "CHL",
+              "CHN",
+              "CXR",
+              "CCK",
+              "COL",
+              "COM",
+              "COD",
+              "COG",
+              "COK",
+              "CRI",
+              "HRV",
+              "CUB",
+              "CUW",
+              "CYP",
+              "CZE",
+              "CIV",
+              "DNK",
+              "DJI",
+              "DMA",
+              "DOM",
+              "ECU",
+              "EGY",
+              "SLV",
+              "GNQ",
+              "ERI",
+              "EST",
+              "SWZ",
+              "ETH",
+              "FLK",
+              "FRO",
+              "FJI",
+              "FIN",
+              "FRA",
+              "GUF",
+              "PYF",
+              "ATF",
+              "GAB",
+              "GMB",
+              "GEO",
+              "DEU",
+              "GHA",
+              "GIB",
+              "GRC",
+              "GRL",
+              "GRD",
+              "GLP",
+              "GUM",
+              "GTM",
+              "GGY",
+              "GIN",
+              "GNB",
+              "GUY",
+              "HTI",
+              "HMD",
+              "VAT",
+              "HND",
+              "HKG",
+              "HUN",
+              "ISL",
+              "IND",
+              "IDN",
+              "IRN",
+              "IRQ",
+              "IRL",
+              "IMN",
+              "ISR",
+              "ITA",
+              "JAM",
+              "JPN",
+              "JEY",
+              "JOR",
+              "KAZ",
+              "KEN",
+              "KIR",
+              "PRK",
+              "KOR",
+              "KWT",
+              "KGZ",
+              "LAO",
+              "LVA",
+              "LBN",
+              "LSO",
+              "LBR",
+              "LBY",
+              "LIE",
+              "LTU",
+              "LUX",
+              "MAC",
+              "MDG",
+              "MWI",
+              "MYS",
+              "MDV",
+              "MLI",
+              "MLT",
+              "MHL",
+              "MTQ",
+              "MRT",
+              "MUS",
+              "MYT",
+              "FSM",
+              "MDA",
+              "MCO",
+              "MNG",
+              "MNE",
+              "MSR",
+              "MAR",
+              "MOZ",
+              "MMR",
+              "NAM",
+              "NRU",
+              "NPL",
+              "NLD",
+              "NCL",
+              "NZL",
+              "NIC",
+              "NER",
+              "NGA",
+              "NIU",
+              "NFK",
+              "MNP",
+              "NOR",
+              "OMN",
+              "PAK",
+              "PLW",
+              "PSE",
+              "PAN",
+              "PNG",
+              "PRY",
+              "PER",
+              "PHL",
+              "PCN",
+              "POL",
+              "PRT",
+              "PRI",
+              "QAT",
+              "MKD",
+              "ROU",
+              "RUS",
+              "RWA",
+              "REU",
+              "BLM",
+              "SHN",
+              "KNA",
+              "LCA",
+              "MAF",
+              "SPM",
+              "VCT",
+              "WSM",
+              "SMR",
+              "STP",
+              "SAU",
+              "SEN",
+              "SRB",
+              "SYC",
+              "SLE",
+              "SGP",
+              "SXM",
+              "SVK",
+              "SVN",
+              "SLB",
+              "SOM",
+              "ZAF",
+              "SGS",
+              "SSD",
+              "ESP",
+              "LKA",
+              "SDN",
+              "SUR",
+              "SJM",
+              "SWE",
+              "CHE",
+              "SYR",
+              "TWN",
+              "TJK",
+              "TZA",
+              "THA",
+              "TLS",
+              "TGO",
+              "TKL",
+              "TON",
+              "TTO",
+              "TUN",
+              "TUR",
+              "TKM",
+              "TCA",
+              "TUV",
+              "UGA",
+              "UKR",
+              "ARE",
+              "GBR",
+              "UMI",
+              "URY",
+              "UZB",
+              "VUT",
+              "VEN",
+              "VNM",
+              "VGB",
+              "VIR",
+              "WLF",
+              "ESH",
+              "YEM",
+              "ZMB",
+              "ZWE"
+            ],
+            "type": "string",
+            "description": "The three character ISO 3166-1 alpha 3 code for the country.",
+            "nullable": true
+          },
+          "isPrimary": {
+            "type": "boolean",
+            "description": "Whether this is the primary address. At most one may be flagged; sending several is a 400. A single address is treated as primary even when not flagged."
+          },
+          "addressType": {
+            "enum": [
+              "Shipping",
+              "Headquarters",
+              "RemitTo"
+            ],
+            "type": "string",
+            "description": "What this address is used for. Omit it to leave the address untyped.",
+            "nullable": true
+          }
+        }
+      },
+      "vendorAddressResponse": {
+        "type": "object",
+        "properties": {
+          "addressName": {
+            "type": "string",
+            "description": "A name identifying this address, such as 'Dallas Terminal'."
+          },
+          "address1": {
+            "type": "string",
+            "description": "Address line 1.",
+            "nullable": true
+          },
+          "address2": {
+            "type": "string",
+            "description": "Address line 2.",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "description": "City.",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "description": "State or province code.",
+            "nullable": true
+          },
+          "zip": {
+            "type": "string",
+            "description": "Postal code.",
+            "nullable": true
+          },
+          "zip4": {
+            "type": "string",
+            "description": "The four-digit ZIP+4 extension.",
+            "nullable": true
+          },
+          "country": {
+            "enum": [
+              "USA",
+              "CAN",
+              "MEX",
+              "AFG",
+              "ALB",
+              "DZA",
+              "ASM",
+              "AND",
+              "AGO",
+              "AIA",
+              "ATA",
+              "ATG",
+              "ARG",
+              "ARM",
+              "ABW",
+              "AUS",
+              "AUT",
+              "AZE",
+              "BHS",
+              "BHR",
+              "BGD",
+              "BRB",
+              "BLR",
+              "BEL",
+              "BLZ",
+              "BEN",
+              "BMU",
+              "BTN",
+              "BOL",
+              "BES",
+              "BIH",
+              "BWA",
+              "BVT",
+              "BRA",
+              "IOT",
+              "BRN",
+              "BGR",
+              "BFA",
+              "BDI",
+              "CPV",
+              "KHM",
+              "CMR",
+              "CYM",
+              "CAF",
+              "TCD",
+              "CHL",
+              "CHN",
+              "CXR",
+              "CCK",
+              "COL",
+              "COM",
+              "COD",
+              "COG",
+              "COK",
+              "CRI",
+              "HRV",
+              "CUB",
+              "CUW",
+              "CYP",
+              "CZE",
+              "CIV",
+              "DNK",
+              "DJI",
+              "DMA",
+              "DOM",
+              "ECU",
+              "EGY",
+              "SLV",
+              "GNQ",
+              "ERI",
+              "EST",
+              "SWZ",
+              "ETH",
+              "FLK",
+              "FRO",
+              "FJI",
+              "FIN",
+              "FRA",
+              "GUF",
+              "PYF",
+              "ATF",
+              "GAB",
+              "GMB",
+              "GEO",
+              "DEU",
+              "GHA",
+              "GIB",
+              "GRC",
+              "GRL",
+              "GRD",
+              "GLP",
+              "GUM",
+              "GTM",
+              "GGY",
+              "GIN",
+              "GNB",
+              "GUY",
+              "HTI",
+              "HMD",
+              "VAT",
+              "HND",
+              "HKG",
+              "HUN",
+              "ISL",
+              "IND",
+              "IDN",
+              "IRN",
+              "IRQ",
+              "IRL",
+              "IMN",
+              "ISR",
+              "ITA",
+              "JAM",
+              "JPN",
+              "JEY",
+              "JOR",
+              "KAZ",
+              "KEN",
+              "KIR",
+              "PRK",
+              "KOR",
+              "KWT",
+              "KGZ",
+              "LAO",
+              "LVA",
+              "LBN",
+              "LSO",
+              "LBR",
+              "LBY",
+              "LIE",
+              "LTU",
+              "LUX",
+              "MAC",
+              "MDG",
+              "MWI",
+              "MYS",
+              "MDV",
+              "MLI",
+              "MLT",
+              "MHL",
+              "MTQ",
+              "MRT",
+              "MUS",
+              "MYT",
+              "FSM",
+              "MDA",
+              "MCO",
+              "MNG",
+              "MNE",
+              "MSR",
+              "MAR",
+              "MOZ",
+              "MMR",
+              "NAM",
+              "NRU",
+              "NPL",
+              "NLD",
+              "NCL",
+              "NZL",
+              "NIC",
+              "NER",
+              "NGA",
+              "NIU",
+              "NFK",
+              "MNP",
+              "NOR",
+              "OMN",
+              "PAK",
+              "PLW",
+              "PSE",
+              "PAN",
+              "PNG",
+              "PRY",
+              "PER",
+              "PHL",
+              "PCN",
+              "POL",
+              "PRT",
+              "PRI",
+              "QAT",
+              "MKD",
+              "ROU",
+              "RUS",
+              "RWA",
+              "REU",
+              "BLM",
+              "SHN",
+              "KNA",
+              "LCA",
+              "MAF",
+              "SPM",
+              "VCT",
+              "WSM",
+              "SMR",
+              "STP",
+              "SAU",
+              "SEN",
+              "SRB",
+              "SYC",
+              "SLE",
+              "SGP",
+              "SXM",
+              "SVK",
+              "SVN",
+              "SLB",
+              "SOM",
+              "ZAF",
+              "SGS",
+              "SSD",
+              "ESP",
+              "LKA",
+              "SDN",
+              "SUR",
+              "SJM",
+              "SWE",
+              "CHE",
+              "SYR",
+              "TWN",
+              "TJK",
+              "TZA",
+              "THA",
+              "TLS",
+              "TGO",
+              "TKL",
+              "TON",
+              "TTO",
+              "TUN",
+              "TUR",
+              "TKM",
+              "TCA",
+              "TUV",
+              "UGA",
+              "UKR",
+              "ARE",
+              "GBR",
+              "UMI",
+              "URY",
+              "UZB",
+              "VUT",
+              "VEN",
+              "VNM",
+              "VGB",
+              "VIR",
+              "WLF",
+              "ESH",
+              "YEM",
+              "ZMB",
+              "ZWE"
+            ],
+            "type": "string",
+            "description": "The three character ISO 3166-1 alpha 3 code for the country.",
+            "nullable": true
+          },
+          "isPrimary": {
+            "type": "boolean",
+            "description": "Whether this is the vendor's primary address."
+          },
+          "addressType": {
+            "enum": [
+              "Shipping",
+              "Headquarters",
+              "RemitTo"
+            ],
+            "type": "string",
+            "description": "What this address is used for. Null when the address has no type.",
+            "nullable": true
+          }
+        }
+      },
+      "vendorContactRequest": {
+        "required": [
+          "contactName"
+        ],
+        "type": "object",
+        "properties": {
+          "contactName": {
+            "maxLength": 256,
+            "minLength": 0,
+            "type": "string",
+            "description": "(Required) The contact's name. Maximum 256 characters."
+          },
+          "contactPhone": {
+            "maxLength": 50,
+            "minLength": 1,
+            "type": "string",
+            "description": "The contact's phone number. Maximum 50 characters.",
+            "format": "tel",
+            "nullable": true
+          },
+          "contactEmail": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string",
+            "description": "The contact's email address. Maximum 256 characters.",
+            "format": "email",
+            "nullable": true
+          },
+          "department": {
+            "enum": [
+              "AccountsPayable",
+              "AccountsReceivable",
+              "Receiving",
+              "Shipping"
+            ],
+            "type": "string",
+            "description": "The contact's department.",
+            "nullable": true
+          },
+          "isPrimary": {
+            "type": "boolean",
+            "description": "Whether this is the primary contact. At most one may be flagged; sending several is a 400. A single contact is treated as primary even when not flagged."
+          },
+          "isDisputeContact": {
+            "type": "boolean",
+            "description": "Whether this contact receives automated dispute communications. Any number may be flagged. Contacts are replaced wholesale, so a contact sent without this stops receiving them."
+          }
+        }
+      },
+      "vendorContactResponse": {
+        "type": "object",
+        "properties": {
+          "contactName": {
+            "type": "string",
+            "description": "The contact's name."
+          },
+          "contactPhone": {
+            "type": "string",
+            "description": "The contact's phone number.",
+            "nullable": true
+          },
+          "contactEmail": {
+            "type": "string",
+            "description": "The contact's email address.",
+            "nullable": true
+          },
+          "department": {
+            "enum": [
+              "AccountsPayable",
+              "AccountsReceivable",
+              "Receiving",
+              "Shipping"
+            ],
+            "type": "string",
+            "description": "The contact's department.",
+            "nullable": true
+          },
+          "isPrimary": {
+            "type": "boolean",
+            "description": "Whether this is the vendor's primary contact."
+          },
+          "isDisputeContact": {
+            "type": "boolean",
+            "description": "Whether this contact receives automated dispute communications."
+          }
+        }
+      },
       "vendorInvoiceAddressPublicDto": {
         "type": "object",
         "properties": {
@@ -9598,22 +11375,38 @@
         "type": "object",
         "properties": {
           "externalId": {
-            "type": "string"
+            "type": "string",
+            "description": "An ID used by the API consumer's system, such as the ID in the TMS."
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "The name of the vendor.",
+            "nullable": true
           },
           "scacCode": {
-            "type": "string"
+            "type": "string",
+            "description": "Vendor SCAC code.",
+            "nullable": true
           },
           "mcNumber": {
-            "type": "string"
+            "type": "string",
+            "description": "Vendor MC number.",
+            "nullable": true
           },
           "dotNumber": {
-            "type": "string"
+            "type": "string",
+            "description": "Vendor DOT number.",
+            "nullable": true
           },
           "currency": {
-            "type": "string"
+            "enum": [
+              "USD",
+              "CAD",
+              "MXN"
+            ],
+            "type": "string",
+            "description": "The vendor's currency. Core accepts USD, CAD and MXN.",
+            "nullable": true
           },
           "billingTerms": {
             "enum": [
@@ -9986,28 +11779,61 @@
               "Prepaid"
             ],
             "type": "string",
-            "default": "Net0",
+            "description": "The billing/payment term for the vendor (e.g. 'Net30').",
             "nullable": true
           },
           "metadata": {
             "type": "object",
             "additionalProperties": {
               "$ref": "#/components/schemas/dictionary_string"
-            }
+            },
+            "description": "Tenant-managed metadata, keyed group => key => value.",
+            "nullable": true
+          },
+          "contacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/vendorContactResponse"
+            },
+            "description": "Every contact Navix holds for the vendor. Always present — an empty array when the vendor has no contacts."
+          },
+          "addresses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/vendorAddressResponse"
+            },
+            "description": "Every address Navix holds for the vendor. Always present — an empty array when the vendor has no addresses."
           }
         }
       },
       "vendorUpsertRequest": {
+        "required": [
+          "externalId",
+          "name"
+        ],
         "type": "object",
         "properties": {
           "externalId": {
-            "type": "string"
+            "maxLength": 450,
+            "minLength": 0,
+            "type": "string",
+            "description": "(Required) An ID used by the API consumer's system, such as the ID in the TMS."
           },
           "name": {
-            "type": "string"
+            "maxLength": 255,
+            "minLength": 0,
+            "type": "string",
+            "description": "(Required) The name of the vendor."
           },
           "currency": {
-            "type": "string"
+            "enum": [
+              "USD",
+              "CAD",
+              "MXN"
+            ],
+            "type": "string",
+            "description": "The vendor's currency, one of USD, CAD or MXN. Defaults to USD when omitted.",
+            "nullable": true
           },
           "billingTerms": {
             "enum": [
@@ -10380,23 +12206,49 @@
               "Prepaid"
             ],
             "type": "string",
-            "default": "Net0",
+            "description": "Billing/payment term (e.g. 'Net30'). Defaults to 'Net30'. Possible values are Net0-Net365 and Prepaid.",
             "nullable": true
           },
           "scacCode": {
-            "type": "string"
+            "type": "string",
+            "description": "Vendor SCAC code. Replaced on each PUT; omit or send null to clear it.",
+            "nullable": true
           },
           "mcNumber": {
-            "type": "string"
+            "type": "string",
+            "description": "Vendor MC number.",
+            "nullable": true
           },
           "dotNumber": {
-            "type": "string"
+            "type": "string",
+            "description": "Vendor DOT number.",
+            "nullable": true
           },
           "metadata": {
             "type": "object",
             "additionalProperties": {
               "$ref": "#/components/schemas/dictionary_string"
-            }
+            },
+            "description": "Tenant-managed metadata, keyed group => key => value. On a PUT this fully replaces the vendor's stored metadata — use PATCH /v2/vendors/{externalId}/metadata for selective updates.",
+            "nullable": true
+          },
+          "contacts": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/vendorContactRequest"
+            },
+            "description": "The complete set of contacts. Replaces every contact Navix holds; an empty array clears them, and omitting the field leaves them untouched. At most 100 per request.",
+            "nullable": true
+          },
+          "addresses": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/vendorAddressRequest"
+            },
+            "description": "The complete set of addresses. Replaces every address Navix holds; an empty array clears them, and omitting the field leaves them untouched. At most 100 per request.",
+            "nullable": true
           }
         }
       },
@@ -10464,6 +12316,7 @@
         "API v2_Vendors",
         "API v2_Payments",
         "API v2_Customers",
+        "API v2_Dispute Reason Groups",
         "API v2_Rating Engine",
         "API v2_Webhooks"
       ]

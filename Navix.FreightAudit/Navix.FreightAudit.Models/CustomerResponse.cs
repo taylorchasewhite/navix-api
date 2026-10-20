@@ -14,19 +14,29 @@ namespace Navix.FreightAudit.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
-        /// <summary>The billingTerms property</summary>
-        public global::Navix.FreightAudit.Models.CustomerResponse_billingTerms? BillingTerms { get; set; }
-        /// <summary>The currency property</summary>
+        /// <summary>Every address Navix holds for the customer. Always present — an empty array when the customer has no addresses.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public string? Currency { get; set; }
+        public List<global::Navix.FreightAudit.Models.CustomerAddressResponse>? Addresses { get; set; }
 #nullable restore
 #else
-        public string Currency { get; set; }
+        public List<global::Navix.FreightAudit.Models.CustomerAddressResponse> Addresses { get; set; }
 #endif
-        /// <summary>The endDate property</summary>
+        /// <summary>The billing term for the customer (e.g. &apos;Net30&apos;).</summary>
+        public global::Navix.FreightAudit.Models.CustomerResponse_billingTerms? BillingTerms { get; set; }
+        /// <summary>Every contact Navix holds for the customer. Always present — an empty array when the customer has no contacts.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<global::Navix.FreightAudit.Models.CustomerContactResponse>? Contacts { get; set; }
+#nullable restore
+#else
+        public List<global::Navix.FreightAudit.Models.CustomerContactResponse> Contacts { get; set; }
+#endif
+        /// <summary>The customer&apos;s currency. Core accepts USD, CAD and MXN.</summary>
+        public global::Navix.FreightAudit.Models.CustomerResponse_currency? Currency { get; set; }
+        /// <summary>The end date of the customer.</summary>
         public DateTimeOffset? EndDate { get; set; }
-        /// <summary>The externalId property</summary>
+        /// <summary>An ID used by the API consumer&apos;s system, such as the ID in the TMS.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public string? ExternalId { get; set; }
@@ -34,7 +44,7 @@ namespace Navix.FreightAudit.Models
 #else
         public string ExternalId { get; set; }
 #endif
-        /// <summary>The metadata property</summary>
+        /// <summary>Tenant-managed metadata, keyed group =&gt; key =&gt; value.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public global::Navix.FreightAudit.Models.CustomerResponse_metadata? Metadata { get; set; }
@@ -42,7 +52,7 @@ namespace Navix.FreightAudit.Models
 #else
         public global::Navix.FreightAudit.Models.CustomerResponse_metadata Metadata { get; set; }
 #endif
-        /// <summary>The name property</summary>
+        /// <summary>The name of the customer.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public string? Name { get; set; }
@@ -50,7 +60,7 @@ namespace Navix.FreightAudit.Models
 #else
         public string Name { get; set; }
 #endif
-        /// <summary>The startDate property</summary>
+        /// <summary>The start date of the customer.</summary>
         public DateTimeOffset? StartDate { get; set; }
         /// <summary>
         /// Instantiates a new <see cref="global::Navix.FreightAudit.Models.CustomerResponse"/> and sets the default values.
@@ -58,7 +68,6 @@ namespace Navix.FreightAudit.Models
         public CustomerResponse()
         {
             AdditionalData = new Dictionary<string, object>();
-            BillingTerms = global::Navix.FreightAudit.Models.CustomerResponse_billingTerms.Net0;
         }
         /// <summary>
         /// Creates a new instance of the appropriate class based on discriminator value
@@ -78,8 +87,10 @@ namespace Navix.FreightAudit.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
+                { "addresses", n => { Addresses = n.GetCollectionOfObjectValues<global::Navix.FreightAudit.Models.CustomerAddressResponse>(global::Navix.FreightAudit.Models.CustomerAddressResponse.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "billingTerms", n => { BillingTerms = n.GetEnumValue<global::Navix.FreightAudit.Models.CustomerResponse_billingTerms>(); } },
-                { "currency", n => { Currency = n.GetStringValue(); } },
+                { "contacts", n => { Contacts = n.GetCollectionOfObjectValues<global::Navix.FreightAudit.Models.CustomerContactResponse>(global::Navix.FreightAudit.Models.CustomerContactResponse.CreateFromDiscriminatorValue)?.AsList(); } },
+                { "currency", n => { Currency = n.GetEnumValue<global::Navix.FreightAudit.Models.CustomerResponse_currency>(); } },
                 { "endDate", n => { EndDate = n.GetDateTimeOffsetValue(); } },
                 { "externalId", n => { ExternalId = n.GetStringValue(); } },
                 { "metadata", n => { Metadata = n.GetObjectValue<global::Navix.FreightAudit.Models.CustomerResponse_metadata>(global::Navix.FreightAudit.Models.CustomerResponse_metadata.CreateFromDiscriminatorValue); } },
@@ -94,8 +105,10 @@ namespace Navix.FreightAudit.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
+            writer.WriteCollectionOfObjectValues<global::Navix.FreightAudit.Models.CustomerAddressResponse>("addresses", Addresses);
             writer.WriteEnumValue<global::Navix.FreightAudit.Models.CustomerResponse_billingTerms>("billingTerms", BillingTerms);
-            writer.WriteStringValue("currency", Currency);
+            writer.WriteCollectionOfObjectValues<global::Navix.FreightAudit.Models.CustomerContactResponse>("contacts", Contacts);
+            writer.WriteEnumValue<global::Navix.FreightAudit.Models.CustomerResponse_currency>("currency", Currency);
             writer.WriteDateTimeOffsetValue("endDate", EndDate);
             writer.WriteStringValue("externalId", ExternalId);
             writer.WriteObjectValue<global::Navix.FreightAudit.Models.CustomerResponse_metadata>("metadata", Metadata);
