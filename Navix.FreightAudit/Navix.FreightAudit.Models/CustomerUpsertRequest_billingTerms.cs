@@ -3,10 +3,9 @@ using System.Runtime.Serialization;
 using System;
 namespace Navix.FreightAudit.Models
 {
+    /// <summary>Billing term (e.g. &apos;Net30&apos;). Defaults to &apos;Net30&apos;. Possible values are Net0-Net365 and Prepaid.</summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
-    #pragma warning disable CS1591
     public enum CustomerUpsertRequest_billingTerms
-    #pragma warning restore CS1591
     {
         [EnumMember(Value = "Net0")]
         #pragma warning disable CS1591

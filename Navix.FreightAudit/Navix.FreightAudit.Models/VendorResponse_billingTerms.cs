@@ -3,10 +3,9 @@ using System.Runtime.Serialization;
 using System;
 namespace Navix.FreightAudit.Models
 {
+    /// <summary>The billing/payment term for the vendor (e.g. &apos;Net30&apos;).</summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
-    #pragma warning disable CS1591
     public enum VendorResponse_billingTerms
-    #pragma warning restore CS1591
     {
         [EnumMember(Value = "Net0")]
         #pragma warning disable CS1591

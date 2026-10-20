@@ -60,7 +60,7 @@ namespace Navix.FreightAudit.V2.Invoices.Item.Disputes.Item.Communications
         {
         }
         /// <summary>
-        /// This returns the complete list of communications associated with a dispute.If a communication was an email, it&apos;ll contain an `email` property that includes email-specific fields. If the `email` property isn&apos;t present, it indicates the communication was internal to the Navix app and wasn&apos;t emailed.Note that the list is returned in an undefined order.
+        /// This returns the complete list of communications associated with a dispute.If a communication was an email, it&apos;ll contain an `email` property that includes email-specific fields. If the `email` property isn&apos;t present, it indicates the communication was internal to the Navix app and wasn&apos;t emailed.Every communication also carries `DisputeCreatedByEmail`: the email of the user who created the dispute (not the author of that communication). It is the same on every communication of the dispute, and null for automatically created disputes or when the email can&apos;t be resolved.Note that the list is returned in an undefined order.
         /// </summary>
         /// <returns>A List&lt;global::Navix.FreightAudit.Models.CommunicationResponse&gt;</returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
@@ -104,7 +104,7 @@ namespace Navix.FreightAudit.V2.Invoices.Item.Disputes.Item.Communications
             return await RequestAdapter.SendAsync<global::Navix.FreightAudit.Models.CommunicationAcceptedResponse>(requestInfo, global::Navix.FreightAudit.Models.CommunicationAcceptedResponse.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }
         /// <summary>
-        /// This returns the complete list of communications associated with a dispute.If a communication was an email, it&apos;ll contain an `email` property that includes email-specific fields. If the `email` property isn&apos;t present, it indicates the communication was internal to the Navix app and wasn&apos;t emailed.Note that the list is returned in an undefined order.
+        /// This returns the complete list of communications associated with a dispute.If a communication was an email, it&apos;ll contain an `email` property that includes email-specific fields. If the `email` property isn&apos;t present, it indicates the communication was internal to the Navix app and wasn&apos;t emailed.Every communication also carries `DisputeCreatedByEmail`: the email of the user who created the dispute (not the author of that communication). It is the same on every communication of the dispute, and null for automatically created disputes or when the email can&apos;t be resolved.Note that the list is returned in an undefined order.
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>

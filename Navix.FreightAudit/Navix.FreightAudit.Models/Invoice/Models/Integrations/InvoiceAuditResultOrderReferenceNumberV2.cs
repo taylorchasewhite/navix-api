@@ -20,7 +20,7 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
 #else
         public string Number { get; set; }
 #endif
-        /// <summary>The type of reference number. Possible values include:* `BOLNumber`* `PONumber`* `SONumber`* `GeneralReferenceNumber`* `ShipmentNumber`</summary>
+        /// <summary>The type of reference number. Possible values include:* `BOLNumber`* `PONumber`* `SONumber`* `GeneralReferenceNumber`* `ShipmentNumber`* `GLCode`</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public string? Type { get; set; }
@@ -35,7 +35,7 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
         /// <param name="parseNode">The parse node to use to read the discriminator value and create the object</param>
         public static global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultOrderReferenceNumberV2 CreateFromDiscriminatorValue(IParseNode parseNode)
         {
-            _ = parseNode ?? throw new ArgumentNullException(nameof(parseNode));
+            if(ReferenceEquals(parseNode, null)) throw new ArgumentNullException(nameof(parseNode));
             return new global::Navix.FreightAudit.Models.Invoice.Models.Integrations.InvoiceAuditResultOrderReferenceNumberV2();
         }
         /// <summary>
@@ -56,7 +56,7 @@ namespace Navix.FreightAudit.Models.Invoice.Models.Integrations
         /// <param name="writer">Serialization writer to use to serialize this model</param>
         public virtual void Serialize(ISerializationWriter writer)
         {
-            _ = writer ?? throw new ArgumentNullException(nameof(writer));
+            if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteStringValue("number", Number);
             writer.WriteStringValue("type", Type);
         }

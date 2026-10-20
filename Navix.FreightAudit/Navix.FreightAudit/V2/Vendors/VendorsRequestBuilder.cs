@@ -47,7 +47,7 @@ namespace Navix.FreightAudit.V2.Vendors
         {
         }
         /// <summary>
-        /// Upserts a vendor based on its external ID — creates it if new, updates it if it already exists. Warning: metadata is fully replaced on each PUT; if metadata is omitted, any existing metadata is cleared. Use PATCH /v2/vendors/{externalId}/metadata for selective updates.
+        /// Upserts a vendor based on its external ID — creates it if new, updates it if it already exists. Warning: metadata is fully replaced on each PUT; if metadata is omitted, any existing metadata is cleared. Use PATCH /v2/vendors/{externalId}/metadata for selective updates. The contacts and addresses collections are also replaced in full, but follow a different omitted-versus-empty rule: a collection that is sent is the complete set and replaces everything Navix holds, an empty array clears the collection, and a collection that is omitted (or sent as null) leaves the existing children untouched.
         /// </summary>
         /// <param name="body">The request body</param>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
@@ -66,7 +66,7 @@ namespace Navix.FreightAudit.V2.Vendors
             await RequestAdapter.SendNoContentAsync(requestInfo, default, cancellationToken).ConfigureAwait(false);
         }
         /// <summary>
-        /// Upserts a vendor based on its external ID — creates it if new, updates it if it already exists. Warning: metadata is fully replaced on each PUT; if metadata is omitted, any existing metadata is cleared. Use PATCH /v2/vendors/{externalId}/metadata for selective updates.
+        /// Upserts a vendor based on its external ID — creates it if new, updates it if it already exists. Warning: metadata is fully replaced on each PUT; if metadata is omitted, any existing metadata is cleared. Use PATCH /v2/vendors/{externalId}/metadata for selective updates. The contacts and addresses collections are also replaced in full, but follow a different omitted-versus-empty rule: a collection that is sent is the complete set and replaces everything Navix holds, an empty array clears the collection, and a collection that is omitted (or sent as null) leaves the existing children untouched.
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="body">The request body</param>

@@ -7,10 +7,11 @@ using System.IO;
 using System;
 namespace Navix.FreightAudit.Models
 {
+    /// <summary>
+    /// Tenant-managed metadata, keyed group =&gt; key =&gt; value. On a PUT this fully replaces the customer&apos;s stored metadata — use PATCH /v2/customers/{externalId}/metadata for selective updates.
+    /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
-    #pragma warning disable CS1591
     public partial class CustomerUpsertRequest_metadata : IAdditionalDataHolder, IParsable
-    #pragma warning restore CS1591
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }

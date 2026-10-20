@@ -14,17 +14,27 @@ namespace Navix.FreightAudit.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
-        /// <summary>The billingTerms property</summary>
-        public global::Navix.FreightAudit.Models.VendorResponse_billingTerms? BillingTerms { get; set; }
-        /// <summary>The currency property</summary>
+        /// <summary>Every address Navix holds for the vendor. Always present — an empty array when the vendor has no addresses.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public string? Currency { get; set; }
+        public List<global::Navix.FreightAudit.Models.VendorAddressResponse>? Addresses { get; set; }
 #nullable restore
 #else
-        public string Currency { get; set; }
+        public List<global::Navix.FreightAudit.Models.VendorAddressResponse> Addresses { get; set; }
 #endif
-        /// <summary>The dotNumber property</summary>
+        /// <summary>The billing/payment term for the vendor (e.g. &apos;Net30&apos;).</summary>
+        public global::Navix.FreightAudit.Models.VendorResponse_billingTerms? BillingTerms { get; set; }
+        /// <summary>Every contact Navix holds for the vendor. Always present — an empty array when the vendor has no contacts.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<global::Navix.FreightAudit.Models.VendorContactResponse>? Contacts { get; set; }
+#nullable restore
+#else
+        public List<global::Navix.FreightAudit.Models.VendorContactResponse> Contacts { get; set; }
+#endif
+        /// <summary>The vendor&apos;s currency. Core accepts USD, CAD and MXN.</summary>
+        public global::Navix.FreightAudit.Models.VendorResponse_currency? Currency { get; set; }
+        /// <summary>Vendor DOT number.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public string? DotNumber { get; set; }
@@ -32,7 +42,7 @@ namespace Navix.FreightAudit.Models
 #else
         public string DotNumber { get; set; }
 #endif
-        /// <summary>The externalId property</summary>
+        /// <summary>An ID used by the API consumer&apos;s system, such as the ID in the TMS.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public string? ExternalId { get; set; }
@@ -40,7 +50,7 @@ namespace Navix.FreightAudit.Models
 #else
         public string ExternalId { get; set; }
 #endif
-        /// <summary>The mcNumber property</summary>
+        /// <summary>Vendor MC number.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public string? McNumber { get; set; }
@@ -48,7 +58,7 @@ namespace Navix.FreightAudit.Models
 #else
         public string McNumber { get; set; }
 #endif
-        /// <summary>The metadata property</summary>
+        /// <summary>Tenant-managed metadata, keyed group =&gt; key =&gt; value.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public global::Navix.FreightAudit.Models.VendorResponse_metadata? Metadata { get; set; }
@@ -56,7 +66,7 @@ namespace Navix.FreightAudit.Models
 #else
         public global::Navix.FreightAudit.Models.VendorResponse_metadata Metadata { get; set; }
 #endif
-        /// <summary>The name property</summary>
+        /// <summary>The name of the vendor.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public string? Name { get; set; }
@@ -64,7 +74,7 @@ namespace Navix.FreightAudit.Models
 #else
         public string Name { get; set; }
 #endif
-        /// <summary>The scacCode property</summary>
+        /// <summary>Vendor SCAC code.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public string? ScacCode { get; set; }
@@ -78,7 +88,6 @@ namespace Navix.FreightAudit.Models
         public VendorResponse()
         {
             AdditionalData = new Dictionary<string, object>();
-            BillingTerms = global::Navix.FreightAudit.Models.VendorResponse_billingTerms.Net0;
         }
         /// <summary>
         /// Creates a new instance of the appropriate class based on discriminator value
@@ -98,8 +107,10 @@ namespace Navix.FreightAudit.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
+                { "addresses", n => { Addresses = n.GetCollectionOfObjectValues<global::Navix.FreightAudit.Models.VendorAddressResponse>(global::Navix.FreightAudit.Models.VendorAddressResponse.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "billingTerms", n => { BillingTerms = n.GetEnumValue<global::Navix.FreightAudit.Models.VendorResponse_billingTerms>(); } },
-                { "currency", n => { Currency = n.GetStringValue(); } },
+                { "contacts", n => { Contacts = n.GetCollectionOfObjectValues<global::Navix.FreightAudit.Models.VendorContactResponse>(global::Navix.FreightAudit.Models.VendorContactResponse.CreateFromDiscriminatorValue)?.AsList(); } },
+                { "currency", n => { Currency = n.GetEnumValue<global::Navix.FreightAudit.Models.VendorResponse_currency>(); } },
                 { "dotNumber", n => { DotNumber = n.GetStringValue(); } },
                 { "externalId", n => { ExternalId = n.GetStringValue(); } },
                 { "mcNumber", n => { McNumber = n.GetStringValue(); } },
@@ -115,8 +126,10 @@ namespace Navix.FreightAudit.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
+            writer.WriteCollectionOfObjectValues<global::Navix.FreightAudit.Models.VendorAddressResponse>("addresses", Addresses);
             writer.WriteEnumValue<global::Navix.FreightAudit.Models.VendorResponse_billingTerms>("billingTerms", BillingTerms);
-            writer.WriteStringValue("currency", Currency);
+            writer.WriteCollectionOfObjectValues<global::Navix.FreightAudit.Models.VendorContactResponse>("contacts", Contacts);
+            writer.WriteEnumValue<global::Navix.FreightAudit.Models.VendorResponse_currency>("currency", Currency);
             writer.WriteStringValue("dotNumber", DotNumber);
             writer.WriteStringValue("externalId", ExternalId);
             writer.WriteStringValue("mcNumber", McNumber);

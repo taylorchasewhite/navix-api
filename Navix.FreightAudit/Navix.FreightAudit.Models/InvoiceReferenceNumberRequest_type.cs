@@ -31,5 +31,9 @@ namespace Navix.FreightAudit.Models
         #pragma warning disable CS1591
         ShipmentNumber,
         #pragma warning restore CS1591
+        [EnumMember(Value = "GLCode")]
+        #pragma warning disable CS1591
+        GLCode,
+        #pragma warning restore CS1591
     }
 }
